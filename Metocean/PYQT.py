@@ -4,7 +4,6 @@ from PyQt5.QtWidgets import QApplication, QMainWindow, QAction, QLabel, QVBoxLay
     QFileDialog, QTextBrowser, QGroupBox, QHBoxLayout, QTabWidget, QPushButton, QWidget, QCheckBox, \
     QMessageBox, QDialog, QDateTimeEdit, QComboBox, QErrorMessage, QDoubleSpinBox, QInputDialog, \
     QTextEdit, QTableWidget, QTableWidgetItem
-
 from threading import Thread
 from docx import Document
 from docx.shared import Pt
@@ -16,15 +15,11 @@ import os
 import pandas
 import matplotlib.pyplot as plt
 import pandas as pd
-
 # 从__main__执行时使用以下导入
 from Metocean.tide import Process_Tide
 from Metocean.current import Single_Tide_Point, Current_pre_process, Read_Report
 from Metocean.Wind_and_Wave import Wind_Wave
 # 从本文件执行时使用以下导入
-
-#
-
 from dxfwrite import DXFEngine as dxf
 
 import numpy as np
@@ -32,16 +27,12 @@ import matplotlib
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as Navigation
 
-
 def dir_of_file(filename): return filename.replace(
     list(filename.split(sep='\\'))[-1], '')
 
-
 def str_from_df(item): return item.values[0]
 
-
 def num_from_df(item): return str(round(item.values[0], 2))
-
 
 def east(v, d):
     try:
@@ -50,7 +41,6 @@ def east(v, d):
         d = d.astype(np.float64)
         return v * np.sin(d / 180 * np.pi)
 
-
 def north(v, d):
     try:
         return v * np.cos(d / 180 * np.pi)
@@ -58,9 +48,7 @@ def north(v, d):
         d = d.astype(np.float64)
         return v * np.cos(d / 180 * np.pi)
 
-
 def dir_in_360b(d): return (d - 360 if d >= 360 else d) if d > 0 else 360 + d
-
 
 def dir_in_360(d): return dir_in_360b(d) if (
     dir_in_360b(d) >= 0 and (

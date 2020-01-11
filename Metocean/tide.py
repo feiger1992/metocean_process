@@ -7,11 +7,8 @@ import dateutil
 # 页边距 left 1.5 right 0 up 1 down1
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
-#import ttide as tt
-
 import utide
 from matplotlib.dates import date2num
-
 import xlsxwriter
 import numpy
 import datetime

@@ -5,7 +5,7 @@ import logging
 import pandas as pd
 import numpy as np
 from os import chdir
-from numpy import inf, histogram2d
+from numpy import inf
 import win32com.client as client
 
 logging.basicConfig(
