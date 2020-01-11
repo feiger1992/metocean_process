@@ -1,17 +1,12 @@
-import threading
 from collections import namedtuple
 import pandas as pd
-import time,os
-from windrose import WindroseAxes
-from matplotlib import pyplot  as plt
-import matplotlib.cm as cm
+import os
 from windrose import WindroseAxes
 from matplotlib import pyplot  as plt
 import matplotlib.cm as cm
 import numpy as np
 plt.rcParams['font.sans-serif'] = ['SimHei']
 plt.rcParams['axes.unicode_minus'] = False
-os.chdir(r"C:\2019-沈家湾三期（GK-2019-0118水）\报告撰写\其他矢量图\断面流矢图")
 unit = "(cm/s)"
 item = '流速'
 east = lambda v, d: v * np.sin(d / 180 * np.pi)

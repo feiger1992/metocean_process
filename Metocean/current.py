@@ -1632,5 +1632,3 @@ if __name__ == "__main__":
                 sss = sss + 1
                 print('OK\n', '*' * 10)
 
-    a = Read_Report(r"C:\2019-茂名\实测数据\处理过程\报告撰写\潮流过程.xlsx")
-    print('finish')

@@ -868,38 +868,9 @@ class Tide_survey(object):
             plt.close()
 
 
-da = [
-    r"C:\2019-沈家湾三期（GK-2019-0118水）\实测数据\current-onboard\大潮\大潮结果\xysdc20190704091125_000t.000",
-    r"C:\2019-沈家湾三期（GK-2019-0118水）\实测数据\current-onboard\大潮\大潮结果\xysdc20190704102435_000t.000",
-    r"C:\2019-沈家湾三期（GK-2019-0118水）\实测数据\current-onboard\大潮\大潮结果\xysdc20190704110015_000t.000",
-    r"C:\2019-沈家湾三期（GK-2019-0118水）\实测数据\current-onboard\大潮\大潮结果\xysdc20190704122247_000t.000",
-    r"C:\2019-沈家湾三期（GK-2019-0118水）\实测数据\current-onboard\大潮\大潮结果\xysdc20190704130056_000t.000",
-    r"C:\2019-沈家湾三期（GK-2019-0118水）\实测数据\current-onboard\大潮\大潮结果\xysdc20190704142423_000t.000",
-    r"C:\2019-沈家湾三期（GK-2019-0118水）\实测数据\current-onboard\大潮\大潮结果\xysdc20190704150017_000t.000",
-    r"C:\2019-沈家湾三期（GK-2019-0118水）\实测数据\current-onboard\大潮\大潮结果\xysdc20190704162722_000t.000",
-    r"C:\2019-沈家湾三期（GK-2019-0118水）\实测数据\current-onboard\大潮\大潮结果\xysdc20190704170013_000t.000",
-    r"C:\2019-沈家湾三期（GK-2019-0118水）\实测数据\current-onboard\大潮\大潮结果\xysdc20190704182952_000t.000",
-    r"C:\2019-沈家湾三期（GK-2019-0118水）\实测数据\current-onboard\大潮\大潮结果\xysdc20190704190042_000t.000",
-    r"C:\2019-沈家湾三期（GK-2019-0118水）\实测数据\current-onboard\大潮\大潮结果\xysdc20190704202651_000t.000",
-    r"C:\2019-沈家湾三期（GK-2019-0118水）\实测数据\current-onboard\大潮\大潮结果\xysdc20190704210012_000t.000",
-    r"C:\2019-沈家湾三期（GK-2019-0118水）\实测数据\current-onboard\大潮\大潮结果\xysdc20190704222818_000t.000",
-    r"C:\2019-沈家湾三期（GK-2019-0118水）\实测数据\current-onboard\大潮\大潮结果\xysdc20190704225836_000t.000",
-    r"C:\2019-沈家湾三期（GK-2019-0118水）\实测数据\current-onboard\大潮\大潮结果\xysdc20190705002325_000t.000",
-    r"C:\2019-沈家湾三期（GK-2019-0118水）\实测数据\current-onboard\大潮\大潮结果\xysdc20190705005629_000t.000",
-    r"C:\2019-沈家湾三期（GK-2019-0118水）\实测数据\current-onboard\大潮\大潮结果\xysdc20190705022717_000t.000",
-    r"C:\2019-沈家湾三期（GK-2019-0118水）\实测数据\current-onboard\大潮\大潮结果\xysdc20190705025819_000t.000",
-    r"C:\2019-沈家湾三期（GK-2019-0118水）\实测数据\current-onboard\大潮\大潮结果\xysdc20190705042750_000t.000",
-    r"C:\2019-沈家湾三期（GK-2019-0118水）\实测数据\current-onboard\大潮\大潮结果\xysdc20190705050304_000t.000",
-    r"C:\2019-沈家湾三期（GK-2019-0118水）\实测数据\current-onboard\大潮\大潮结果\xysdc20190705062754_000t.000",
-    r"C:\2019-沈家湾三期（GK-2019-0118水）\实测数据\current-onboard\大潮\大潮结果\xysdc20190705070006_000t.000",
-    r"C:\2019-沈家湾三期（GK-2019-0118水）\实测数据\current-onboard\大潮\大潮结果\xysdc20190705082727_000t.000",
-    r"C:\2019-沈家湾三期（GK-2019-0118水）\实测数据\current-onboard\大潮\大潮结果\xysdc20190705090000_000t.000",
-    r"C:\2019-沈家湾三期（GK-2019-0118水）\实测数据\current-onboard\大潮\大潮结果\xysdc20190705102839_000t.000",
-    r"C:\2019-沈家湾三期（GK-2019-0118水）\实测数据\current-onboard\大潮\大潮结果\xysdc20190705110011_000t.000",
-    r"C:\2019-沈家湾三期（GK-2019-0118水）\实测数据\current-onboard\大潮\大潮结果\xysdc20190705123209_000t.000",
-    r"C:\2019-沈家湾三期（GK-2019-0118水）\实测数据\current-onboard\大潮\大潮结果\xysdc20190705130524_000t.000"]
-pos = r"C:\2019-沈家湾三期（GK-2019-0118水）\走航点位坐标.csv"
-#Xiao = Tide_survey(xiao,pos,r"小潮合并.xlsx",IF_process=True,IF_Draw_raw_points=False,IF_Draw_selected_points=False,If_Draw_interpolation=False)
+da = []
+pos = r"C:\2019-（GK-2019-0118水）\走航点位坐标.csv"
+# Xiao = Tide_survey(xiao,pos,r"小潮合并.xlsx",IF_process=True,IF_Draw_raw_points=False,IF_Draw_selected_points=False,If_Draw_interpolation=False)
 Da = Tide_survey(
     da,
     pos,

@@ -27,12 +27,16 @@ import matplotlib
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as Navigation
 
+
 def dir_of_file(filename): return filename.replace(
     list(filename.split(sep='\\'))[-1], '')
 
+
 def str_from_df(item): return item.values[0]
 
+
 def num_from_df(item): return str(round(item.values[0], 2))
+
 
 def east(v, d):
     try:
@@ -41,6 +45,7 @@ def east(v, d):
         d = d.astype(np.float64)
         return v * np.sin(d / 180 * np.pi)
 
+
 def north(v, d):
     try:
         return v * np.cos(d / 180 * np.pi)
@@ -48,12 +53,15 @@ def north(v, d):
         d = d.astype(np.float64)
         return v * np.cos(d / 180 * np.pi)
 
+
 def dir_in_360b(d): return (d - 360 if d >= 360 else d) if d > 0 else 360 + d
 
+
 def dir_in_360(d): return dir_in_360b(d) if (
-    dir_in_360b(d) >= 0 and (
+        dir_in_360b(d) >= 0 and (
         dir_in_360b(d) < 360)) else dir_in_360b(
     dir_in_360b(d))
+
 
 # 通知栏         QMessageBox.information(self,'通知标题',"内容")
 
@@ -228,15 +236,15 @@ class M_window(QMainWindow):
 
     def display(self, category, title, content, tip=None):
         if category == 'HTML':
-            #Qweb = QWebEngineView()
+            # Qweb = QWebEngineView()
             # Qweb.setHtml(content)
             # Qweb.show()
-            #self.show_content.update({title + '(web)': Qweb})
-            #self.shower.addTab(self.show_content[title + '(web)'], title + '(web)')
+            # self.show_content.update({title + '(web)': Qweb})
+            # self.shower.addTab(self.show_content[title + '(web)'], title + '(web)')
 
-            #self.shower.setCurrentWidget(self.show_content[title + '(web)'])
+            # self.shower.setCurrentWidget(self.show_content[title + '(web)'])
             # if tip:
-                #self.shower.setTabToolTip(self.shower.count() - 1, tip)
+            # self.shower.setTabToolTip(self.shower.count() - 1, tip)
             pass
         if category == 'TXT':
             self.show_content.update({title: QTextEdit()})
@@ -276,9 +284,9 @@ class M_window(QMainWindow):
                 'False',
                 ' ' *
                 5).replace(
-                    'NaN',
-                    ' ' *
-                    3),
+                'NaN',
+                ' ' *
+                3),
             tip=tip)
 
     def display_tide_harmonic_result(self, filename, site, tip):
@@ -701,7 +709,7 @@ class Tide_Site_Tab(QWidget):
 
     def generate_tide_HTML(self):
         html_process_thread = Thread(target=t[self.filename].display, kwargs={
-                                     'site': self.sitename})
+            'site': self.sitename})
         html_process_thread.start()
         second = 0
         while html_process_thread.is_alive():
@@ -756,7 +764,7 @@ class Tide_Site_Tab(QWidget):
 
     def save_one_site_mid_data(self):
         self.save_something_to_excel(t[self.filename].out_put_mid_data, {
-                                     'sitename': self.sitename}, '计算过程文件')
+            'sitename': self.sitename}, '计算过程文件')
 
     def save_one_site_tide(self):
         self.save_something_to_excel(t[self.filename].output,
@@ -776,7 +784,7 @@ class Tide_Site_Tab(QWidget):
 
     def Astronomical_analysis(self):
         harmonic_thread = Thread(target=t[self.filename].harmonic_analysis, kwargs={
-                                 'site': self.sitename, 'if_init': self.analysis_by_init_data.isChecked()})
+            'site': self.sitename, 'if_init': self.analysis_by_init_data.isChecked()})
         harmonic_thread.start()
         second = 0
         while harmonic_thread.is_alive():
@@ -932,8 +940,8 @@ class Current_Tab(QWidget):
         self.bed_Group = QGroupBox("文件分层")
 
         self.del_data = QPushButton("删除当前潮流数据", clicked=self.del_all_data)
-        #self.save_imported_file_button = QPushButton("保存载入数据",clicked = self.save_imported_file)
-        #self.import_files_button = QPushButton("保存载入数据", clicked=self.import_files)
+        # self.save_imported_file_button = QPushButton("保存载入数据",clicked = self.save_imported_file)
+        # self.import_files_button = QPushButton("保存载入数据", clicked=self.import_files)
 
         self.VD2EN = QPushButton('合成流速转为分向流速', clicked=self.vd_to_en)
         self.EN2VD = QPushButton('分向流速转为合成流速', clicked=self.ne_to_vd)
@@ -1055,7 +1063,7 @@ class Current_Tab(QWidget):
         def str_type(point_type_re):
             s = ''
             s += '测点' + point_type_re[0] + '在' + \
-                point_type_re[1] + point_type_re[2] + '时'
+                 point_type_re[1] + point_type_re[2] + '时'
 
         def out_ave_txt_c(row):
             return str_from_df(row['层数']) + '的平均流速为' + num_from_df(
@@ -1130,11 +1138,12 @@ class Current_Tab(QWidget):
                                                                                     level=0).reindex(['最大流速',
                                                                                                       '最大流速对应方向'],
                                                                                                      axis=1,
-                                                                                                     level=1).reindex(['大潮',
-                                                                                                                       '中潮',
-                                                                                                                       '小潮'],
-                                                                                                                      axis=0,
-                                                                                                                      level=1)
+                                                                                                     level=1).reindex(
+            ['大潮',
+             '中潮',
+             '小潮'],
+            axis=0,
+            level=1)
         self.max_out = self.max_out  # 改一下层数顺序，下同
         self.save_csv(self.max_out)
         sig.msg_to_show.emit('流速最大值汇总结束')
@@ -1164,11 +1173,12 @@ class Current_Tab(QWidget):
                                                                                      level=0).reindex(['平均流速',
                                                                                                        '平均流向'],
                                                                                                       axis=1,
-                                                                                                      level=1).reindex(['大潮',
-                                                                                                                        '中潮',
-                                                                                                                        '小潮'],
-                                                                                                                       axis=0,
-                                                                                                                       level=1)
+                                                                                                      level=1).reindex(
+            ['大潮',
+             '中潮',
+             '小潮'],
+            axis=0,
+            level=1)
 
         self.mean_out = self.mean_out  # 改一下层数顺序，下同
         self.save_csv(self.mean_out)
@@ -1258,7 +1268,7 @@ class Current_Tab(QWidget):
         if not self.current_report_file:
             return 0
         c_excel = Read_Report(self.current_report_file)
-        #self.Points = list(c2.points)
+        # self.Points = list(c2.points)
 
         self.Point_count.setValue(len(c_excel.points))
         if len(c_excel.tide_type) == 3:
@@ -1447,18 +1457,18 @@ class Current_Tab(QWidget):
         tide_data_file, _ = QFileDialog.getOpenFileName(
             self, "选取潮位数据文件", "", "Excel文件(*.xlsx)", options=self.options)
 
-###################################################
+        ###################################################
         pos = self.positions.iloc[0, :]
         c_of_one_point = [
             point_c for _,
-            point_c in c.items() if point_c.point == pos.loc['name']]
+                        point_c in c.items() if point_c.point == pos.loc['name']]
         all_t = []
         for every_c in c_of_one_point:
             data = every_c.ceng_processed[0].data
             data = data[data['t'].apply(lambda t: t.minute) == 0]
             for i in data['t'].values:
                 all_t.append(i)
-                #data.loc[iii, 'v'], data.loc[iii, 'd']
+                # data.loc[iii, 'v'], data.loc[iii, 'd']
 
         for single_time in all_t:
             title = str(single_time)[:13].replace('T', " ") + ":00"
@@ -1481,7 +1491,7 @@ class Current_Tab(QWidget):
                     v = north(V, D)
 
                     ax.text(pos.x, pos.y, pos.name, color='green', fontsize=20)
-                    #ax.text(pos.x + u, pos.y + v, "v = " + str(V) + "\nd = " + str(D), color='red', size="x-small")
+                    # ax.text(pos.x + u, pos.y + v, "v = " + str(V) + "\nd = " + str(D), color='red', size="x-small")
                     ax.arrow(
                         pos.x,
                         pos.y,
@@ -1623,18 +1633,18 @@ class Current_Tab(QWidget):
         for pos in self.positions.itertuples():
             c_of_one_point = [
                 point_c for _,
-                point_c in c.items() if point_c.point == pos.name]
+                            point_c in c.items() if point_c.point == pos.name]
             for every_c in c_of_one_point:
                 every_c.location(x=pos.x, y=pos.y)
                 data = every_c.ceng_processed[self.draw_cengshu.currentIndex(
                 )].data
-                #data = data[data['t'].apply(lambda t: t.minute) == 0]
+                # data = data[data['t'].apply(lambda t: t.minute) == 0]
                 for iii in range(len(data)):
                     plot_line2(every_c.x, every_c.y, data.loc[iii, 'v'], data.loc[iii, 'd'],
                                tuceng=str(data.loc[iii, 't']).replace(":", ""),
                                parameter=self.cad_parameter.value(), drawing=drawing)
 
-                    #plot_line(every_c.x,every_c.y, data['v'], data['d'],tuceng= every_c.tide_type+self.draw_cengshu.currentText(), parameter=self.cad_parameter.value(),drawing=drawing)
+                    # plot_line(every_c.x,every_c.y, data['v'], data['d'],tuceng= every_c.tide_type+self.draw_cengshu.currentText(), parameter=self.cad_parameter.value(),drawing=drawing)
 
             if every_c.point not in named_points:
                 text = dxf.text(
@@ -1643,7 +1653,7 @@ class Current_Tab(QWidget):
                         every_c.x,
                         every_c.y),
                     height=self.cad_parameter.value() *
-                    10,
+                           10,
                 )
                 text['layer'] = ['TEXT']
                 text['color'] = 5
@@ -1820,14 +1830,16 @@ class Point_Tab(QWidget):
                         cengshu=self.cengshu)
                     self.tides_control.update({tide_type: tab})
                     self.tabs.addTab(tab, tide_type)
-                    #self.tabs.setTabToolTip('源文件为' + fileName)
+                    # self.tabs.setTabToolTip('源文件为' + fileName)
                     sig.load_current_file_done.emit(self.point, tide_type)
                     sig.msg_to_show.emit(
                         self.point + '站' + tide_type + '数据文件载入结束，请继续操作')
 
                 return generate_tab
             else:
-                def x(xx): return print(xx)
+                def x(xx):
+                    return print(xx)
+
                 return x
 
         else:  # 从报表中导入,主要参数均从函数入口传递
@@ -1843,7 +1855,7 @@ class Point_Tab(QWidget):
             self.tides_control.update({tideType: tab})
             self.tabs.addTab(tab, tideType)
             sig.load_current_file_done.emit(self.point, tideType)
-            #self.tabs.setTabToolTip('源文件为' + reportFile)
+            # self.tabs.setTabToolTip('源文件为' + reportFile)
 
     def clear_file(self):
         self.tides_control.clear()
@@ -1926,7 +1938,7 @@ class Single_Tide_tab(QWidget):  # 需根据从报表导入重构
             "输出潮流特征值文件", clicked=self.save_output)
         self.draw_stream_Button = QPushButton(
             "查看各层逐时流速矢量图", clicked=self.show_current_arrow)
-        #self.harmonic_analysis_Button = QPushButton("进行调和分析", clicked=self.harmonic_analysis)
+        # self.harmonic_analysis_Button = QPushButton("进行调和分析", clicked=self.harmonic_analysis)
 
         layout = QFormLayout()
         layout.addRow(self.output_Button)
@@ -1942,7 +1954,7 @@ class Single_Tide_tab(QWidget):  # 需根据从报表导入重构
             'TXT', self.Point + self.tide_type, txt)
 
     def show_current_arrow(self):
-        #fig = c[self.Point + self.tide_type].display(self.filename + ".png")
+        # fig = c[self.Point + self.tide_type].display(self.filename + ".png")
         fig = c[self.Point +
                 self.tide_type].display(self.filename +
                                         self.Point +
@@ -1971,7 +1983,6 @@ class Process_excel_data_thread(QThread):
 
 
 if __name__ == "__main__":
-
     app = QApplication(sys.argv)
     app.setStyle('Fusion')
     ex = M_window()
