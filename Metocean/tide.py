@@ -355,20 +355,6 @@ class Tide(object):
 
         return temp_data
 
-    def harmonic_analysis_old(self, site, if_init=True):  # 2019/9/4弃用
-        data_h = self.data[site]
-        data_h['min'] = data_h.index
-        data_h['min'] = data_h['min'].apply(lambda x: x.minute)
-        data_h = data_h[data_h['min'] == 0]
-
-        if if_init:
-            self.harmonic_result.update(
-                {site: tt.t_tide(data_h['tide_init'], dt=1, lat=30)})
-            # 维度采用长江口地区
-        else:
-            self.harmonic_result.update(
-                {site: tt.t_tide(data_h['tide'], dt=1, lat=30)})
-
     def harmonic_analysis(self, site, if_init=True, time_zone=8, lat=30):  # 19年9月启用
 
         ana_data = self.data[site]
