@@ -791,10 +791,27 @@ test = Data(
     itemShowName="1/10波高",
     draw_type=[1])
 # test.draw_joint_dist(max_dist=1.5)
-# test.draw(draw_type=[1,2,3],key = "T1/10",itemShowName = "1/10周期",unit = "s",bins=T_bins)
-# test.statistics(key='v', bin=wind_bins,excelfile=r"H:\埃及\statistics_风速风向.xlsx")
-# test.statistics(key='T1/10', bin=T_bins,excelfile=r"H:\埃及\statistics_1_10周期.xlsx")
-#test.statistics(key='H1/10', bin=h_10_bins, excelfile=r"H:\埃及\statistics_1_10波高222.xlsx")
+# test.statistics(
+#     key='v',
+#     bin=wind_bins,
+#     excelfile=r"H:\埃及\statistics_风速风向.xlsx")
+# test.draw(
+#     draw_type=[
+#         1,
+#         2,
+#         3],
+#     key="T1/10",
+#     itemShowName="1/10周期",
+#     unit="s",
+#     bins=T_bins)
+# test.statistics(
+#     key='T1/10',
+#     bin=T_bins,
+#     excelfile=r"H:\埃及\statistics_1_10周期.xlsx")
+# test.statistics(
+#     key='H1/10',
+#     bin=h_10_bins,
+#     excelfile=r"H:\埃及\statistics_1_10波高222.xlsx")
 
 print(" *" * 20)
 
