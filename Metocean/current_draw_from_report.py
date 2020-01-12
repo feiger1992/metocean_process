@@ -1,6 +1,5 @@
 from collections import namedtuple
 import pandas as pd
-import os
 from windrose import WindroseAxes
 from matplotlib import pyplot  as plt
 import matplotlib.cm as cm
