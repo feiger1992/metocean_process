@@ -1,3 +1,4 @@
+#encoding = utf-8
 import Metocean
 from Metocean.PYQT import M_window
 from PyQt5.QtWidgets import QApplication
