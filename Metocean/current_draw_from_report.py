@@ -88,7 +88,6 @@ class Read_Report():
             df = df.reset_index().dropna().set_index('index')
             df = df.dropna(axis=1)
 
-
             try:
                 df.columns = ['depth', 'v_0', 'd_0', 'v_2', 'd_2', 'v_4', 'd_4', 'v_6', 'd_6', 'v_8', 'd_8', 'v_10',
                               'd_10', 'v_max', 'd_max', 'v', 'd']
@@ -159,7 +158,6 @@ def Draw_tide_Profile(Single_time,Tide_type,temp_tide_file = r"C:\2019-沈家湾
     a2 = plt.axes([.75, .13, .15, .05], facecolor='grey')
     a2.patch.set_alpha(0.3)
     plt.plot(temp_tide_data['tide'], color='blue')
-    # plt.title('潮位')
     i = temp_tide_data[temp_tide_data['time'] == Single_time].index[0]
     plt.axvline(x=i, color='r', linestyle='-')
     plt.xticks([])
@@ -173,7 +171,6 @@ def Draw_Profile_Current(e,n,Tide_type,Single_Time,Profile_Name):
     for i in range(1, 8):#层数，对应高度
         for j in range(1, len(Profiles[Profile_Name]) + 1):
             if not e.iloc[7 - i][j - 1] == n.iloc[7 - i][j - 1] == 0:
-                #ax.arrow(j, i, e.iloc[6 - i][j - 1] * paramater , n.iloc[6 - i][j - 1] * paramater, head_width=0.1, head_length=0.1, fc='blue', ec='black')
                 ax.arrow(j, i, e.iloc[7 - i][j - 1] * paramater, n.iloc[7 - i][j - 1] * paramater, head_width=0.1,
                          head_length=0.1, fc='blue', ec='black')
     ax.set_xlim(0, len(Profiles[Profile_Name])+1)
