@@ -23,23 +23,7 @@ def dir_in_360(d): return dir_in_360b(d) if (
         dir_in_360b(d) < 360)) else dir_in_360b(
     dir_in_360b(d))
 
-EWSN2dir = {
-    "NNW": 337.5,
-    "NW": 315,
-    "WNW": 292.5,
-    "W": 270,
-    "WSW": 247.5,
-    "SW": 225,
-    "SSW": 202.5,
-    "S": 180,
-    "SSE": 157.5,
-    "SE": 135,
-    "ESE": 112.5,
-    "E": 90,
-    "ENE": 67.5,
-    "NE": 45,
-    "NNE": 22.5,
-    "N": 0}
+
 seasons = ['冬天'] * 2 + ["春天"] * 3 + ["夏天"] * 3 + ["秋天"] * 3 + ["冬天"]
 DIRECTIONS = [
     'E',
@@ -75,6 +59,7 @@ DIRECTIONS_N1 = [
     "WNW",
     "NW",
     "NNW"]
+EWSN2dir2 = dict(zip(DIRECTIONS_N1, np.linspace(0, 360, 16, endpoint=False)))
 ABC = list('ABCDEFGHIJKLMNOPQRSTUVWXYZ')
 month_to_season = dict(zip(range(1, 13), seasons))
 
@@ -374,14 +359,14 @@ class Data(object):
 
     def gen_dist_m_d(self):
         self.group_m_d = self.df.groupby(['month', 'DIR'])
-        self.dist_m_d = (
-            self.group_m_d.size() /
-            self.group_m_d.size().sum() *
-            100).unstack('month')
-        self.dist_m_d['汇总'] = self.dist_m_d.T.sum()
-        self.dist_m_d = self.dist_m_d.reindex(DIRECTIONS_N1).T
-        self.dist_m_d['汇总'] = self.dist_m_d.T.sum()
-        self.dist_m_d = self.dist_m_d.T.fillna('-')
+        self.dist_m_d = (self.group_m_d.size().unstack('month') /
+                         (self.group_m_d.size().sum(level=0))).reindex(DIRECTIONS_N1)
+        dist_m_y = (
+                self.group_m_d.size().unstack('month') /
+                self.group_m_d.size().sum()).T.sum()
+        self.dist_m_d['汇总'] = dist_m_y
+        self.dist_m_d *= 100
+        self.dist_m_d = self.dist_m_d.T.fillna('-').T
 
     def draw(self, draw_type, key, bins, *args, **kwargs):
         self.statistics(key, bins)
@@ -587,9 +572,15 @@ class Data(object):
         if writer:
             gg2 = self.df.groupby(['season', 'DIR'])
             max = gg2[key].max().unstack()
-            self.mean_and_max_statistics(df=max, writer=writer, if_max=True, if_month=False, key=key)
+            self.mean_and_max_statistics(
+                df=max, writer=writer, if_max=True, if_month=False, key=key)
             mean = gg2[key].mean().unstack()
-            self.mean_and_max_statistics(df=mean, writer=writer, if_max=False, if_month=False, key=key)
+            self.mean_and_max_statistics(
+                df=mean,
+                writer=writer,
+                if_max=False,
+                if_month=False,
+                key=key)
 
     def statics_month_data(self, key, bin, writer=None, *args, **kwargs):
         for m in self.g_m.groups:
@@ -603,9 +594,15 @@ class Data(object):
             gg = self.df.groupby(['month', 'DIR'])
 
             max = gg[key].max().unstack()
-            self.mean_and_max_statistics(df=max, writer=writer, if_max=True, if_month=True, key=key)
+            self.mean_and_max_statistics(
+                df=max, writer=writer, if_max=True, if_month=True, key=key)
             mean = gg[key].mean().unstack()
-            self.mean_and_max_statistics(df=mean, writer=writer, if_max=False, if_month=True, key=key)
+            self.mean_and_max_statistics(
+                df=mean,
+                writer=writer,
+                if_max=False,
+                if_month=True,
+                key=key)
 
             self.dist_m_d.to_excel(
                 writer, sheet_name="各月各向分布", float_format='%.2f')
@@ -614,9 +611,11 @@ class Data(object):
         month_or_season = "月" if if_month else "季"
         max_or_mean = "最大值" if if_max else "平均值"
         if if_max:
-            statistics = lambda x: x.max()
+            def statistics(x):
+                return x.max()
         else:
-            statistics = lambda x: x.mean()
+            def statistics(x):
+                return x.mean()
         df['汇总'] = statistics(df.T)
         df = df.T.reindex(DIRECTIONS_N1)
         df['汇总'] = statistics(df.T)
@@ -750,20 +749,20 @@ f = r"H:\附录E：风速风向报表 - 分析.xlsx"
 f_wave = r"H:\附录C：测波观测月报表（埃及）.xlsx"
 
 chdir(r"H:\埃及")
-test = Data(if_wind=False,
-            filename=f_wave,
-            isEWSN=False,
-            key='H1/10',
+test = Data(if_wind=True,
+            filename=f,
+            isEWSN=True,
+            key='v',
             sitename="埃及Quseir",
-            bins=h_10_bins,
-            unit='m',
-            itemShowName="1/10波高",
+            bins=wind_bins,
+            unit='m/s',
+            itemShowName="风速",
             draw_type=[])
 # test.draw_joint_dist(max_dist=1.5)
-# test.statistics(
-#     key='v',
-#     bin=wind_bins,
-#     excelfile=r"H:\埃及\statistics_风速风向.xlsx")
+test.statistics(
+    key='v',
+    bin=wind_bins,
+    excelfile=r"H:\埃及\statistics_风速风向.xlsx")
 # test.draw(
 #     draw_type=[
 #         1,
@@ -777,10 +776,10 @@ test = Data(if_wind=False,
 #     key='T1/10',
 #     bin=T_bins,
 #     excelfile=r"H:\埃及\statistics_1_10周期.xlsx")
-test.statistics(
-    key='H1/10',
-    bin=h_10_bins,
-    excelfile=r"H:\埃及\statistics_1_10波高222.xlsx")
+# test.statistics(
+#     key='H1/10',
+#     bin=h_10_bins,
+#     excelfile=r"H:\埃及\statistics_1_10波高222.xlsx")
 
 print(" *" * 20)
 
