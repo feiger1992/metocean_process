@@ -59,7 +59,7 @@ DIRECTIONS_N1 = [
     "WNW",
     "NW",
     "NNW"]
-EWSN2dir2 = dict(zip(DIRECTIONS_N1, np.linspace(0, 360, 16, endpoint=False)))
+EWSN2dir = dict(zip(DIRECTIONS_N1, np.linspace(0, 360, 16, endpoint=False)))
 ABC = list('ABCDEFGHIJKLMNOPQRSTUVWXYZ')
 month_to_season = dict(zip(range(1, 13), seasons))
 
