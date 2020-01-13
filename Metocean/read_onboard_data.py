@@ -351,18 +351,18 @@ class Once_survey(object):
                 del_indices(-1)
                 print("删除之后其流速为" + str(selected.v))
 
-            while max(selected.e) > 220:
-                del_indices(np.argmax(selected.e))
-                print("点" +
-                      p.Name +
-                      "在" +
-                      selected.time.strftime("%m/%d %H:%M") +
-                      "时，" +
-                      str(np.argmax(selected.e)) +
-                      "层流速偏大,为" +
-                      str(round(max(selected.e))) +
-                      "m/s，将其删除.")
-                print("删除之后其东向流速为" + str(selected.e))
+            # while max(selected.e) > 220:
+            #     del_indices(np.argmax(selected.e))
+            #     print("点" +
+            #           p.Name +
+            #           "在" +
+            #           selected.time.strftime("%m/%d %H:%M") +
+            #           "时，" +
+            #           str(np.argmax(selected.e)) +
+            #           "层流速偏大,为" +
+            #           str(round(max(selected.e))) +
+            #           "m/s，将其删除.")
+            #     print("删除之后其东向流速为" + str(selected.e))
             while max(selected.n) > 220:
                 del_indices(np.argmax(selected.n))
                 print("点" +

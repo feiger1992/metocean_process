@@ -7,7 +7,6 @@ import numpy as np
 from os import chdir
 from numpy import inf
 import win32com.client as client
-
 logging.basicConfig(
     level=logging.INFO,
     format='%(levelname)s %(asctime)s %(message)s',
@@ -23,7 +22,6 @@ def dir_in_360(d): return dir_in_360b(d) if (
     dir_in_360b(d) >= 0 and (
         dir_in_360b(d) < 360)) else dir_in_360b(
     dir_in_360b(d))
-
 
 EWSN2dir = {
     "NNW": 337.5,
@@ -42,19 +40,7 @@ EWSN2dir = {
     "NE": 45,
     "NNE": 22.5,
     "N": 0}
-seasons = [
-    '冬天',
-    '冬天',
-    '春天',
-    '春天',
-    '春天',
-    '夏天',
-    '夏天',
-    '夏天',
-    '秋天',
-    '秋天',
-    '秋天',
-    '冬天']
+seasons = ['冬天'] * 2 + ["春天"] * 3 + ["夏天"] * 3 + ["秋天"] * 3 + ["冬天"]
 DIRECTIONS = [
     'E',
     'ENE',
@@ -393,7 +379,7 @@ class Data(object):
             self.group_m_d.size().sum() *
             100).unstack('month')
         self.dist_m_d['汇总'] = self.dist_m_d.T.sum()
-        self.dist_m_d = self.dist_m_d.T
+        self.dist_m_d = self.dist_m_d.reindex(DIRECTIONS_N1).T
         self.dist_m_d['汇总'] = self.dist_m_d.T.sum()
         self.dist_m_d = self.dist_m_d.T.fillna('-')
 
@@ -472,7 +458,7 @@ class Data(object):
         df = pd.DataFrame(data=h / count, index=e1[:-1], columns=e2[:-1])
         # df = pd.DataFrame(data=h/100 , index=e1[:-1], columns=e2[:-1])#debug
         df.columns = DIRECTIONS_N1
-        df = df.T.reindex(DIRECTIONS).T
+        df = df.T.reindex(DIRECTIONS_N1).T
         df['缺测'] = 0
         df['汇总'] = df.T.sum()
         df = df.T
@@ -485,10 +471,10 @@ class Data(object):
         df.loc['汇总', '汇总'] = 1
 
         df *= 100
-        df['最大值'] = Max
-        df['平均值'] = Mean
-        df.loc['汇总', '最大值'] = df['最大值'].max()
-        df.loc['汇总', '平均值'] = df['平均值'].mean()
+        # df['最大值'] = Max
+        # df['平均值'] = Mean
+        # df.loc['汇总', '最大值'] = df['最大值'].max()
+        # df.loc['汇总', '平均值'] = df['平均值'].mean()
         df = df.fillna(0)
         df[df == 0] = "-"
         return df
@@ -601,27 +587,9 @@ class Data(object):
         if writer:
             gg2 = self.df.groupby(['season', 'DIR'])
             max = gg2[key].max().unstack()
-            max['汇总'] = max.T.max()
-            max = max.T
-            max['汇总'] = max.T.max()
-            max = max.fillna("-")
-            max.to_excel(
-                writer,
-                sheet_name=key.replace(
-                    r'/',
-                    '_') + " " + "季最大值",
-                float_format='%.2f')
+            self.mean_and_max_statistics(df=max, writer=writer, if_max=True, if_month=False, key=key)
             mean = gg2[key].mean().unstack()
-            mean['汇总'] = mean.T.mean()
-            mean = mean.T
-            mean['汇总'] = mean.T.mean()
-            mean = mean.fillna("-")
-            mean.to_excel(
-                writer,
-                sheet_name=key.replace(
-                    r'/',
-                    '_') + " " + "季平均值",
-                float_format='%.2f')
+            self.mean_and_max_statistics(df=mean, writer=writer, if_max=False, if_month=False, key=key)
 
     def statics_month_data(self, key, bin, writer=None, *args, **kwargs):
         for m in self.g_m.groups:
@@ -633,30 +601,32 @@ class Data(object):
                     r'/', '_') + " " + str(m[0]) + '年' + str(m[1]) + "月", float_format='%.2f')
         if writer:
             gg = self.df.groupby(['month', 'DIR'])
+
             max = gg[key].max().unstack()
-            max['汇总'] = max.T.max()
-            max = max.T
-            max['汇总'] = max.T.max()
-            max = max.fillna("-")
-            max.to_excel(
-                writer,
-                sheet_name=key.replace(
-                    r'/',
-                    '_') + " " + "月最大值",
-                float_format='%.2f')
+            self.mean_and_max_statistics(df=max, writer=writer, if_max=True, if_month=True, key=key)
             mean = gg[key].mean().unstack()
-            mean['汇总'] = mean.T.mean()
-            mean = mean.T
-            mean['汇总'] = mean.T.mean()
-            mean = mean.fillna("-")
-            mean.to_excel(
-                writer,
-                sheet_name=key.replace(
-                    r'/',
-                    '_') + " " + "月平均值",
-                float_format='%.2f')
+            self.mean_and_max_statistics(df=mean, writer=writer, if_max=False, if_month=True, key=key)
+
             self.dist_m_d.to_excel(
                 writer, sheet_name="各月各向分布", float_format='%.2f')
+
+    def mean_and_max_statistics(self, df, writer, if_month, if_max, key):
+        month_or_season = "月" if if_month else "季"
+        max_or_mean = "最大值" if if_max else "平均值"
+        if if_max:
+            statistics = lambda x: x.max()
+        else:
+            statistics = lambda x: x.mean()
+        df['汇总'] = statistics(df.T)
+        df = df.T.reindex(DIRECTIONS_N1)
+        df['汇总'] = statistics(df.T)
+        df = df.fillna("-")
+        df.to_excel(
+            writer,
+            sheet_name=key.replace(
+                r'/',
+                '_') + " " + month_or_season + max_or_mean,
+            float_format='%.2f')
 
     def statistics(self, key, bin, excelfile=None):
         self.max_p.update({key: []})
@@ -698,15 +668,15 @@ class Data(object):
                                                      })
             writer.close()
 
-            exc = client.gencache.EnsureDispatch("Excel.Application")
-            exc.Visible = False
-            wb = exc.Workbooks.Open(Filename=excelfile)
-            for name in sheet_names:
-                sheet = wb.Worksheets(name)
-                sheet.Cells(1, 1).Value = "方向/分布"
-                sheet.Cells(1, 1).Font.Bold = True
-            exc.ActiveWorkbook.Save()
-            exc.Quit()
+            # exc = client.Dispatch("Excel.Application")
+            # exc.Visible = False
+            # wb = exc.Workbooks.Open(Filename=excelfile)
+            # for name in sheet_names:
+            #     sheet = wb.Worksheets(name)
+            #     sheet.Cells(1, 1).Value = "方向/分布"
+            #     sheet.Cells(1, 1).Font.Bold = True
+            # exc.ActiveWorkbook.Save()
+            # exc.Quit()
 
     def joint_density_distribution_of_T_and_H(
             self,
@@ -780,16 +750,15 @@ f = r"H:\附录E：风速风向报表 - 分析.xlsx"
 f_wave = r"H:\附录C：测波观测月报表（埃及）.xlsx"
 
 chdir(r"H:\埃及")
-test = Data(
-    if_wind=False,
-    filename=f_wave,
-    isEWSN=False,
-    key='H1/10',
-    sitename="埃及Quseir",
-    bins=h_10_bins,
-    unit='m',
-    itemShowName="1/10波高",
-    draw_type=[1])
+test = Data(if_wind=False,
+            filename=f_wave,
+            isEWSN=False,
+            key='H1/10',
+            sitename="埃及Quseir",
+            bins=h_10_bins,
+            unit='m',
+            itemShowName="1/10波高",
+            draw_type=[])
 # test.draw_joint_dist(max_dist=1.5)
 # test.statistics(
 #     key='v',
@@ -808,10 +777,10 @@ test = Data(
 #     key='T1/10',
 #     bin=T_bins,
 #     excelfile=r"H:\埃及\statistics_1_10周期.xlsx")
-# test.statistics(
-#     key='H1/10',
-#     bin=h_10_bins,
-#     excelfile=r"H:\埃及\statistics_1_10波高222.xlsx")
+test.statistics(
+    key='H1/10',
+    bin=h_10_bins,
+    excelfile=r"H:\埃及\statistics_1_10波高222.xlsx")
 
 print(" *" * 20)
 
