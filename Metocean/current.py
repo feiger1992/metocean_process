@@ -863,7 +863,7 @@ class Single_Tide_Point(One_Current_Point):
                 if group2.loc[group2.index[i * 2 + 1],
                               't'] - group2.loc[group2.index[i * 2],
                                                 't'] < pd.Timedelta('2h'):
-                    time_v_d.loc[group2.index[i * 2]                                 :group2.index[i * 2 + 1], 'timeof'] = 0
+                    time_v_d.loc[group2.index[i * 2]:group2.index[i * 2 + 1], 'timeof'] = 0
             return time_v_d, one_time_direction_index
 
         def both_dir_remove_small_duration(tvd):
@@ -1020,8 +1020,8 @@ class Single_Tide_Point(One_Current_Point):
                     timeof=timeof,
                     parameter=parameter))
         for i in range(0, 6):
-            changed[i + 1] = changed[i + \
-                1].rename(columns={'v': 'v_' + str(i * 2), 'd': 'd_' + str(i * 2)})
+            changed[i + 1] = changed[i +
+                                     1].rename(columns={'v': 'v_' + str(i * 2), 'd': 'd_' + str(i * 2)})
         self.changed_out = pd.concat(changed, axis=1)
         self.changed_out = self.changed_out.T.drop_duplicates().T
         columns = [
@@ -1186,6 +1186,13 @@ class Single_Tide_Point(One_Current_Point):
 
 class Read_Report():
     def __init__(self, filename):
+        def search_row(row, key):
+            got = []
+            for i, s in enumerate(row.astype(str).tolist()):
+                if key in s:
+                    got.append(row[i])
+            return got
+
         def select_df(df):
             rows_to_select = df.isna().all(axis=1, bool_only=True)
             boundary = [0]
@@ -1212,14 +1219,11 @@ class Read_Report():
         def identify(df):
             names = []
 
-            def search_row(
-                row, key): return row[row.str.contains(key)].values[0]
             for i in range(5):
                 for keys in ['潮汛', '潮型', '测站', '测点']:
-                    try:
-                        names.append(search_row(df.iloc[i, :], keys))
-                    except BaseException:
-                        continue
+                    got = search_row(df.iloc[i, :], keys)
+                    for x in got:
+                        names.append(x)
             return names
 
         def get_name(name):
@@ -1631,4 +1635,3 @@ if __name__ == "__main__":
                 ccc.display(r"C:\Users\刘鹏飞\Desktop\1\t" + str(sss) + ".png")
                 sss = sss + 1
                 print('OK\n', '*' * 10)
-
