@@ -23,7 +23,7 @@ def dir_in_360(d): return dir_in_360b(d) if (
         dir_in_360b(d) < 360)) else dir_in_360b(
     dir_in_360b(d))
 
-wind_bins = [0, 0.2, 1.5, 3.3, 5.4, 7.9, 10.7, 13.8, 17.1, 20.7, 24.4, 28.4, 32.6]
+wind_bins = [0, 0.2, 1.5, 3.3, 5.4, 7.9, 10.7, 13.8, 17.1]  # , 20.7, 24.4, 28.4, 32.6
 seasons = ['冬天'] * 2 + ["春天"] * 3 + ["夏天"] * 3 + ["秋天"] * 3 + ["冬天"]
 DIRECTIONS = [
     'E',
@@ -762,9 +762,40 @@ class Data(object):
             fig.savefig(describe + ".png", dpi=200, bbox_inches='tight')
             logging.info(describe + "图保存结束")
 
+    def count_storm_days(self, key, excel_file, list_of_thresholds=None):
+        count_storm_days_results = dict()
+        if not list_of_thresholds:
+            list_of_thresholds = wind_bins
+        for threshold in list_of_thresholds:
+            if threshold in [0, 0.2, 1.5, 3.3, 5.4, 7.9, np.inf]:
+                continue
+            df = self.df[self.df[key] > threshold]
+            logging.info("计算%s大于%s的天数", key, str(threshold))
+            df.loc[:, 'day'] = df.index
+            df.loc[:, 'day'] = df['day'].apply(lambda x: x.date())
+            gg = df.groupby(['month', 'DIR', 'day'])
+            count_storm = gg.size().unstack(
+                ['DIR']).count(axis=0, level=0).T
+            count_storm['汇总'] = count_storm.T.sum()
+            count_storm = count_storm.reindex(DIRECTIONS_N1).T
+            count_storm['汇总'] = df.groupby('month')['day'].nunique()
+            count_storm = count_storm.reindex(self.dist_m_d.T.index).T
+            count_storm.loc['汇总', '汇总'] = count_storm.T['汇总'].sum()
+            if list_of_thresholds == wind_bins:
+                storm_name = str(list_of_thresholds.index(threshold)) + "级及以上(≥" + str(threshold) + ")"
+            else:
+                storm_name = "≥" + str(threshold)
+            count_storm_days_results.update({storm_name: count_storm.fillna('-')})  # 每月统计共出现多少大风天数
+            logging.info("计算结束,计算结果写入至文件 %s 中", excel_file)
 
-# test = Data({'filename':f},{'key':"Hmean"},{'sitename':"鼠浪湖"},{'itemShowName':"平均波高"},{'bins':h_10_bins},{'unit':"(s)"},{'draw_type':'ALL'},{'workdir':None})
-
+        writer = pd.ExcelWriter(excel_file, engine='xlsxwriter')
+        dd = {}
+        for i, j in count_storm_days_results.items():
+            dd.update({i: j.loc['汇总', :]})
+            j.to_excel(excel_writer=writer, sheet_name=i)
+        All_result = pd.DataFrame(dd)
+        All_result.to_excel(excel_writer=writer)
+        writer.close()
 T_bins = [0, 4, 5, 6, 7, 8, 10, 12, 15]
 h_10_bins = [0, 0.4, 0.6, 0.8, 1.0, 1.2, 1.5, 2.0, 3.0]
 f = r"H:\附录E：风速风向报表 - 分析.xlsx"
@@ -780,11 +811,12 @@ test = Data(if_wind=True,
             unit='m/s',
             itemShowName="风速",
             draw_type=[])
+test.count_storm_days(key='v', excel_file=r"H:\埃及\大风天数.xlsx")
 # test.draw_joint_dist(max_dist=1.5)
-test.statistics(
-    key='v',
-    bin=wind_bins,
-    excelfile=r"H:\埃及\statistics_风速风向.xlsx")
+# test.statistics(
+#     key='v',
+#     bin=wind_bins,
+#     excelfile=r"H:\埃及\statistics_风速风向.xlsx")
 # test.draw(
 #     draw_type=[
 #         1,
