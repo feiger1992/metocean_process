@@ -10,7 +10,8 @@ import threading
 from collections import namedtuple
 import utide
 from matplotlib.dates import date2num
-
+from windrose import WindroseAxes
+import matplotlib.cm as cm
 
 plt.rcParams['font.sans-serif'] = ['SimHei']
 plt.rcParams['axes.unicode_minus'] = False
@@ -1183,6 +1184,45 @@ class Single_Tide_Point(One_Current_Point):
     def output_proper_txt(self):
         return self.output_all().to_string() + '\n' + self.out_times()
 
+    def disturbution_plot(self):
+        v, d = [], []
+        unit = "cm/s"
+        for i in range(1, 7):
+            for vi in self.ceng_processed[i].data['v'].values:
+                v.append(vi)
+            for di in self.ceng_processed[i].data['d'].values:
+                d.append(di)
+        print("共有" + str(len(v)) + "组流速流向数据")
+        fig = plt.figure(figsize=(16, 9), dpi=200)
+        ax = WindroseAxes.from_ax(fig=fig, rmax=None)
+        ax.bar(d, v, normed=True,
+               opening=0.8, edgecolor='white', bins=np.linspace(0, 200, 11), N=10, cmap=cm.rainbow)
+        # ax.box(dir, var, normed=True, edgecolor='white', bins=bins,  cmap=cm.rainbow)
+        ax.set_legend(title="流速" + unit if unit else item,
+                      fancybox=True, facecolor='ivory', edgecolor='black', fontsize=15, bbox_to_anchor=(0,
+                                                                                                        0),
+                      decimal_places=0, ncol=3,
+                      prop={'size': 9})
+        ax.set_radii_angle(angle=20)
+        ax.tick_params(
+            axis='y',
+            direction='inout',
+            colors='darkblue',
+            pad=1)
+        ax.tick_params(axis='x', colors='black', labelsize=15, pad=2)
+        ax.grid(color='black', linestyle=':', linewidth=1, alpha=1)
+        title = self.point + " " + ' 流速流向分布频级图'
+        ax.set_title(title, {'fontsize': 20})
+        fig_file = self.filename + title + '.png'
+        fig.savefig(
+            fig_file.replace(
+                r'/',
+                '_'),
+            dpi=200,
+            bbox_inches='tight')
+        print(fig_file.replace(r'/', '_') + '保存成功')
+        plt.close()
+        print(self.point + self.tide_type + 'OK')
 
 class Read_Report():
     def __init__(self, filename):

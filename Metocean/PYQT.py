@@ -967,7 +967,7 @@ class Current_Tab(QWidget):
 
         self.show_all_out_Button = QPushButton(
             "查看所有测流结果", clicked=self.show_all_out)
-        self.save_all_out_Button = QPushButton('保存', clicked=self.save_all_out)
+        self.save_all_out_Button = QPushButton('流速流向分布图???', clicked=self.save_all_out)
         self.save_max_out_Button = QPushButton(
             "汇总流速最大值", clicked=self.save_max_out)
         self.save_mean_out_Button = QPushButton(
@@ -1107,10 +1107,9 @@ class Current_Tab(QWidget):
 
         self.sig.show_all_out_signal.emit(
             'TXT', '潮流计算结果汇总', self.all_current_out.to_string())
-        ######
+        self.save_all_out()
 
     def save_all_out(self):
-        self.gen_all_current_out()
         self.save_csv(self.all_current_out)
 
     def save_max_out(self):
@@ -1938,12 +1937,15 @@ class Single_Tide_tab(QWidget):  # 需根据从报表导入重构
             "输出潮流特征值文件", clicked=self.save_output)
         self.draw_stream_Button = QPushButton(
             "查看各层逐时流速矢量图", clicked=self.show_current_arrow)
+        self.draw_distribution_Button = QPushButton(
+            "查看各向分布", clicked=self.show_distribution)
         # self.harmonic_analysis_Button = QPushButton("进行调和分析", clicked=self.harmonic_analysis)
 
         layout = QFormLayout()
         layout.addRow(self.output_Button)
         layout.addRow(self.output_file_Button)
         layout.addRow(self.draw_stream_Button)
+        layout.addRow(self.draw_distribution_Button)
         # layout.addRow(self.harmonic_analysis_Button)
 
         self.setLayout(layout)
@@ -1960,6 +1962,9 @@ class Single_Tide_tab(QWidget):  # 需根据从报表导入重构
                                         self.Point +
                                         self.tide_type)
         # self.signal.show_current_arrow_signal.emit(fig)
+
+    def show_distribution(self):
+        fig = c[self.Point + self.tide_type].disturbution_plot()
 
     def save_output(self):
         out = c[self.Point + self.tide_type].output_all()

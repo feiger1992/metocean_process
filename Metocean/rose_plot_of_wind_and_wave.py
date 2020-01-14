@@ -23,7 +23,7 @@ def dir_in_360(d): return dir_in_360b(d) if (
         dir_in_360b(d) < 360)) else dir_in_360b(
     dir_in_360b(d))
 
-
+wind_bins = [0, 0.2, 1.5, 3.3, 5.4, 7.9, 10.7, 13.8, 17.1, 20.7, 24.4, 28.4, 32.6]
 seasons = ['冬天'] * 2 + ["春天"] * 3 + ["夏天"] * 3 + ["秋天"] * 3 + ["冬天"]
 DIRECTIONS = [
     'E',
@@ -62,7 +62,6 @@ DIRECTIONS_N1 = [
 EWSN2dir = dict(zip(DIRECTIONS_N1, np.linspace(0, 360, 16, endpoint=False)))
 ABC = list('ABCDEFGHIJKLMNOPQRSTUVWXYZ')
 month_to_season = dict(zip(range(1, 13), seasons))
-
 
 def is_time_start(time): return time.hour == 0 and time.is_month_start
 
@@ -310,6 +309,7 @@ class Data(object):
                             'D': 'dir', 'd': 'dir'}, axis=1)
             df = df.set_index(df.index.round('min'))
             if self.if_wind:
+                self.key = kwargs['key']
                 df = df.set_index(df.index + pd.DateOffset(hours=4))
 
             logging.info(
@@ -358,15 +358,29 @@ class Data(object):
             self.draw(draw_type, *args, **kwargs)
 
     def gen_dist_m_d(self):
-        self.group_m_d = self.df.groupby(['month', 'DIR'])
-        self.dist_m_d = (self.group_m_d.size().unstack('month') /
-                         (self.group_m_d.size().sum(level=0))).reindex(DIRECTIONS_N1)
-        dist_m_y = (
-                self.group_m_d.size().unstack('month') /
-                self.group_m_d.size().sum()).T.sum()
-        self.dist_m_d['汇总'] = dist_m_y
-        self.dist_m_d *= 100
-        self.dist_m_d = self.dist_m_d.T.fillna('-').T
+        group_m_d = self.df.groupby(['month', 'DIR'])
+        if self.if_wind:
+            df_c, df_un_c = self.df[self.df[self.key] <= 0.2], self.df[self.df[self.key] > 0.2]
+            un_c_group_m_d = df_un_c.groupby(['month', 'DIR'])
+            un_c_dist = un_c_group_m_d.size().unstack()
+            c_dist = df_c.groupby('month')
+            un_c_dist['C'] = c_dist.size()
+            self.dist_m_d = un_c_dist.T / (group_m_d.size().sum(level=0))
+            dist_m_y = un_c_group_m_d.size().sum(level=1)
+            dist_m_y.loc['C'] = len(df_c)
+            self.dist_m_d.loc[:, '汇总'] = dist_m_y / len(self.df)
+            self.dist_m_d = self.dist_m_d.reindex(DIRECTIONS_N1 + ['C']) * 100
+            self.dist_m_d = self.dist_m_d.fillna("-")
+
+        else:
+            self.dist_m_d = (group_m_d.size().unstack('month') /
+                             (group_m_d.size().sum(level=0))).reindex(DIRECTIONS_N1)
+            dist_m_y = (
+                    group_m_d.size().unstack('month') /
+                    group_m_d.size().sum()).T.sum()
+            self.dist_m_d['汇总'] = dist_m_y
+            self.dist_m_d *= 100
+            self.dist_m_d = self.dist_m_d.T.fillna('-').T
 
     def draw(self, draw_type, key, bins, *args, **kwargs):
         self.statistics(key, bins)
@@ -435,10 +449,12 @@ class Data(object):
         # h, e1, e2 = histogram2d(v, d, [v_bin, d_bin])#左闭右开，numpy自带函数
         h = histogram222(v, d, [v_bin, d_bin])  # 左开右闭，自己修改,慎调
         e1, e2 = v_bin, d_bin
+        h[1] = h[1] + h[0]  # 下一行中移除第一行时，需先将v =0 的情况考虑进去，故加入此行修复bug
         h = h[1:]  # 移除第一行，调整格式；为防止漏掉v中等于v_bin第一项的情况，输入v_bin中第一项应为0
         h[:, 0] = h[:, 0] + h[:, -1]
         h = h[:, :-1]  # 合并N的两行为一行
         count = self.count_df(df)
+        per = round(len(df) / count, 2)
 
         df = pd.DataFrame(data=h / count, index=e1[:-1], columns=e2[:-1])
         # df = pd.DataFrame(data=h/100 , index=e1[:-1], columns=e2[:-1])#debug
@@ -452,14 +468,21 @@ class Data(object):
         m = max(df['汇总'][:-1])
         self.max_p[key].append(m)
 
-        df.loc['缺测', '汇总'] = 1 - df.loc['汇总', '汇总']
-        df.loc['汇总', '汇总'] = 1
-
-        df *= 100
         # df['最大值'] = Max
         # df['平均值'] = Mean
         # df.loc['汇总', '最大值'] = df['最大值'].max()
-        # df.loc['汇总', '平均值'] = df['平均值'].mean()
+        # df.loc['汇总', '平df.iloc[:,0].sum()均值'] = df['平均值'].mean()
+        if self.if_wind:
+            # 原统计中，各向分布的频率是基于全部数据统计出来的，实际应基于除静风外的数据进行统计
+            per_C = df.iloc[-1, 0]
+            df = df.iloc[:, 1:]
+            df['汇总'] = df.iloc[:, :-1].T.sum()[:-2]
+            df.loc['缺测', '汇总'] = per_C
+            df = df.rename(index={"缺测": "C"})
+        else:
+            df.loc['缺测', '汇总'] = str(per)
+        df.loc['汇总', '汇总'] = 1
+        df *= 100
         df = df.fillna(0)
         df[df == 0] = "-"
         return df
@@ -744,7 +767,6 @@ class Data(object):
 
 T_bins = [0, 4, 5, 6, 7, 8, 10, 12, 15]
 h_10_bins = [0, 0.4, 0.6, 0.8, 1.0, 1.2, 1.5, 2.0, 3.0]
-wind_bins = [0, 0.2, 1.5, 3.3, 5.4, 7.9, 10.7, 13.8]
 f = r"H:\附录E：风速风向报表 - 分析.xlsx"
 f_wave = r"H:\附录C：测波观测月报表（埃及）.xlsx"
 
