@@ -1213,7 +1213,7 @@ class Single_Tide_Point(One_Current_Point):
         ax.grid(color='black', linestyle=':', linewidth=1, alpha=1)
         title = self.point + " " + ' 流速流向分布频级图'
         ax.set_title(title, {'fontsize': 20})
-        fig_file = self.filename + title + '.png'
+        fig_file = self.filename[-10:] + title + '.png'
         fig.savefig(
             fig_file.replace(
                 r'/',
@@ -1633,7 +1633,6 @@ def add_convert_row_to_tvd_and_timeof(time_v_d, angle):
     time_v_d = time_v_d.sort_values(by='t')
     time_v_d['time'] = time_v_d['t']
     time_v_d = time_v_d.reset_index(drop=True)
-
     return time_v_d
 
 
@@ -1642,6 +1641,19 @@ def draw_dxf(multi_point, parameter, filename):
     for i in multi_point:
         i.draw_dxf(drawing=drawing)
     return drawing
+
+
+days_d = [1, 2, 3, 15, 16, 17]
+days_x = [8, 9, 10, 22, 23, 24]
+
+
+def Spring_or_Neap(day):
+    if day in days_d:
+        return "Spring"
+    if day in days_x:
+        return "Neap"
+    else:
+        return "Moderate"
 
 
 if __name__ == "__main__":

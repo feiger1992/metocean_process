@@ -120,31 +120,16 @@ class Tide(object):
         self.outtxt.update({site: s})
 
     def preprocess(self, s, threshold=10):
-        try:
-            self.tide_sheet = pandas.read_excel(self.filename, sheet_name=s)
-            if self.tide_sheet.empty:
-                raise ValueError
-
-            if 'tide' in self.tide_sheet.columns.values and 'time' in self.tide_sheet.columns.values:
-                pass
-            else:
-                say_out('Please Check Your Format of the Sheet')
-                raise AttributeError
-        except BaseException:
-            say_out('Please Check Your sheets name of the File')
-            raise EOFError
-        self.tide_sheet = self.tide_sheet[['time', 'tide']]
-        temp_data = self.tide_sheet
+        self.tide_sheet = pandas.read_excel(self.filename, sheet_name=s, converters={'time': str})
+        # self.tide_sheet['time'] = self.tide_sheet['time'].apply(lambda x: pandas.to_datetime(str(x)))
         t = []
-        if isinstance(
-                temp_data.time[1],
-                pandas.Timestamp) or isinstance(
-                temp_data.time[1],
-                datetime.datetime):
-            t = temp_data.time.dt.round('1min')
-        else:
-            for x in temp_data.time:
-                t.append(dateutil.parser.parse(x))
+        for i in self.tide_sheet['time']:
+            try:
+                t.append(pandas.to_datetime(str(i)))
+            except:
+                print(i)
+        temp_data = self.tide_sheet
+        self.tide_sheet['time'] = t
         temp_data['format_time'] = t
         if temp_data.tide.max() - temp_data.tide.min() > 10:
             temp_data['tide_init'] = temp_data.tide / 100
@@ -1164,20 +1149,72 @@ class Process_Tide(Tide):
                         '潮位（去噪）').replace(
                             'diff',
                             '潮差').replace(
-                                'raising_time',
-                                '涨潮时间').replace(
-                                    'ebb_time',
-                                    '落潮时间').replace(
-                                        'nan',
-                                        '').replace(
-                                            '<table id=',
+            'raising_time',
+            '涨潮时间').replace(
+            'ebb_time',
+            '落潮时间').replace(
+            'nan',
+            '').replace(
+            '<table id=',
             '<table border="1" id=')
         self.html.update({site: h})
 
+    def calculate_accumulated_possibility(self, if_extreme, if_max=None, site=None):
+        if if_extreme:
+            if if_max:
+                values = self.data[site][self.data[site]['if_max']]['tide_init']
+            else:
+                values = self.data[site][self.data[site]['if_min']]['tide_init']
+        else:
+            values = self.data[site]['tide_init']
+        result = []
+        length = len(values)
+        sorted_v = sorted(values, reverse=True)
+        for i in range(0, 100):
+            result.append(sorted_v[round(length * i / 100)])
+        result.append(sorted_v[-1])
+        return result
+
+    def plot_accumulated_possibility(self, if_extreme=False, if_max=False, filename=None, site=None):
+        if if_extreme:
+            if if_max:
+                up, low = 10, None
+                extreme = "高潮"
+            else:
+                up, low = None, 90
+                extreme = "低潮"
+        else:
+            up, low = 1, 99
+            extreme = "全部"
+
+        if not site:
+            for site in self.sites:
+                self.plot_accumulated_possibility(if_extreme=if_extreme, if_max=if_max, site=site)
+        values = self.calculate_accumulated_possibility(if_extreme=if_extreme, if_max=if_max, site=site)
+        fig, ax = plt.subplots(dpi=200)
+        ax.plot(range(0, 101), values, 'k', linewidth=1.5)
+        ax.set_xlim(-5, 105)
+        ax.set_ylim(np.floor(values[-1] / 10) * 10, np.ceil(values[0] / 10) * 10)
+        if up:
+            ax.hlines(y=values[up], xmin=-5, xmax=up, colors='k',
+                      linestyle='dotted', linewidth=1, label="累积频率" + str(up) + "%潮位:" + str(int(round(values[up]))))
+        if low:
+            ax.hlines(y=values[low], xmin=-5, xmax=low, colors='k',
+                      linestyle='dashed', linewidth=1, label="累积频率" + str(low) + "%潮位:" + str(int(round(values[low]))))
+        ax.set_xlabel("累积频率（%）")
+        ax.set_ylabel("潮位（cm）")
+        ax.set_title(extreme + "潮位累积频率曲线")
+        ax.legend()
+        if not filename:
+            filename = extreme + site + "潮位累积频率曲线.png"
+        plt.savefig(filename, dpi=200)
 
 if __name__ == "__main__":
-    filename = r"E:\★★★★★项目★★★★★\★★★★埃及汉纳维6000mw清洁煤电项目-水文测验★★★★\实测数据\数据资料--------\二、长期\3、潮位\⑵ 过程资料\10月-11月潮位.xlsx"
+    filename = r"E:\★★★★★项目★★★★★\★★★★埃及汉纳维6000mw清洁煤电项目-水文测验★★★★\实测数据\提交\潮位-程序读取 0116.xlsx"
     t = Process_Tide(filename, only_first_sheet=True)
     t.preprocess(t.sites[0], 85)
-    print(t.harmonic_result)
-    print('*****OK*****')
+    t.plot_accumulated_possibility(if_extreme=False)
+    t.plot_accumulated_possibility(if_extreme=True)
+    t.plot_accumulated_possibility(if_extreme=True, if_max=True)
+
+    print('***** OK *****')
