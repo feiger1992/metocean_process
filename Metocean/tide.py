@@ -1159,14 +1159,7 @@ class Process_Tide(Tide):
             '<table border="1" id=')
         self.html.update({site: h})
 
-    def calculate_accumulated_possibility(self, if_extreme, if_max=None, site=None):
-        if if_extreme:
-            if if_max:
-                values = self.data[site][self.data[site]['if_max']]['tide_init']
-            else:
-                values = self.data[site][self.data[site]['if_min']]['tide_init']
-        else:
-            values = self.data[site]['tide_init']
+    def persent_result_of_value(self, values):
         result = []
         length = len(values)
         sorted_v = sorted(values, reverse=True)
@@ -1175,38 +1168,57 @@ class Process_Tide(Tide):
         result.append(sorted_v[-1])
         return result
 
-    def plot_accumulated_possibility(self, if_extreme=False, if_max=False, filename=None, site=None):
+    def calculate_accumulated_possibility(self, if_extreme, site=None):
         if if_extreme:
-            if if_max:
-                up, low = 10, None
-                extreme = "高潮"
-            else:
-                up, low = None, 90
-                extreme = "低潮"
+            return self.persent_result_of_value(
+                self.data[site][self.data[site]['if_max']]['tide_init']), self.persent_result_of_value(
+                self.data[site][self.data[site]['if_min']]['tide_init'])
         else:
-            up, low = 1, 99
-            extreme = "全部"
+            return self.persent_result_of_value(self.data[site]['tide_init'])
+
+    def plot_accumulated_possibility(self, if_extreme=False, filename=None, site=None):
+        if if_extreme:
+            up, low = 10, 90
+            extreme = ("极值潮位累积频率")
+        else:
+            up, low = 1, 98
+            extreme = "历时累积频率"
 
         if not site:
             for site in self.sites:
-                self.plot_accumulated_possibility(if_extreme=if_extreme, if_max=if_max, site=site)
-        values = self.calculate_accumulated_possibility(if_extreme=if_extreme, if_max=if_max, site=site)
+                self.plot_accumulated_possibility(if_extreme=if_extreme, site=site)
+
         fig, ax = plt.subplots(dpi=200)
-        ax.plot(range(0, 101), values, 'k', linewidth=1.5)
+        if if_extreme:
+            value_max, value_min = self.calculate_accumulated_possibility(if_extreme=if_extreme, site=site)
+            ax.plot(range(0, 101), value_max, 'r', linewidth=1.5, label="高潮累积频率曲线")
+            ax.plot(range(0, 101), value_min, 'b', linewidth=1.5, label="低潮累积频率曲线")
+            ax.set_ylim(np.floor(value_min[-1] / 10) * 10, np.ceil(value_max[0] / 10) * 10)
+            ax.vlines(x=up, ymin=0, ymax=value_max[up], colors='k',
+                      linestyle='dotted', linewidth=1,
+                      label="高潮累积频率" + str(up) + "%潮位:" + str(int(round(value_max[up]))))
+            ax.vlines(x=low, ymin=-5, ymax=value_min[low], colors='k',
+                      linestyle='dashed', linewidth=1,
+                      label="低潮累积频率" + str(low) + "%潮位:" + str(int(round(value_min[low]))))
+            ax.set_title("极值潮位累积频率曲线")
+        else:
+            values = self.calculate_accumulated_possibility(if_extreme=if_extreme, site=site)
+            ax.plot(range(0, 101), values, 'k', linewidth=1.5)
+            ax.set_ylim(np.floor(values[-1] / 10) * 10, np.ceil(values[0] / 10) * 10)
+            ax.vlines(x=up, ymin=0, ymax=values[up], colors='k',
+                      linestyle='dotted', linewidth=1, label="历时累积频率" + str(up) + "%潮位:" + str(int(round(values[up]))))
+            ax.vlines(x=low, ymin=0, ymax=values[low], colors='k',
+                      linestyle='dashed', linewidth=1,
+                      label="历时累积频率" + str(low) + "%潮位:" + str(int(round(values[low]))))
+            ax.set_title("历时潮位累积频率曲线")
         ax.set_xlim(-5, 105)
-        ax.set_ylim(np.floor(values[-1] / 10) * 10, np.ceil(values[0] / 10) * 10)
-        if up:
-            ax.hlines(y=values[up], xmin=-5, xmax=up, colors='k',
-                      linestyle='dotted', linewidth=1, label="累积频率" + str(up) + "%潮位:" + str(int(round(values[up]))))
-        if low:
-            ax.hlines(y=values[low], xmin=-5, xmax=low, colors='k',
-                      linestyle='dashed', linewidth=1, label="累积频率" + str(low) + "%潮位:" + str(int(round(values[low]))))
+        ax.set_xticks(np.linspace(0, 100, 11))
         ax.set_xlabel("累积频率（%）")
         ax.set_ylabel("潮位（cm）")
-        ax.set_title(extreme + "潮位累积频率曲线")
         ax.legend()
+        plt.tight_layout()
         if not filename:
-            filename = extreme + site + "潮位累积频率曲线.png"
+            filename = extreme + site + "曲线.png"
         plt.savefig(filename, dpi=200)
 
 if __name__ == "__main__":
@@ -1215,6 +1227,5 @@ if __name__ == "__main__":
     t.preprocess(t.sites[0], 85)
     t.plot_accumulated_possibility(if_extreme=False)
     t.plot_accumulated_possibility(if_extreme=True)
-    t.plot_accumulated_possibility(if_extreme=True, if_max=True)
 
     print('***** OK *****')
