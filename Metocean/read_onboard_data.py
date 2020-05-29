@@ -11,8 +11,7 @@ import warnings
 import pycnnum
 import lunardate
 import win32com.client as client
-
-sys.stdout = open(r"C:\Users\刘鹏飞\Desktop\test\logging.txt", 'w')
+import threading
 
 preamble = matplotlib.rcParams.setdefault('pgf.preamble', [])
 preamble.append(r'\usepackage{color}')
@@ -159,7 +158,7 @@ def delete_blank_rows(excelfilename, n):
     # 删除pandas保存bug引起的多余空行
     # 其他格式调整
 
-    exc = client.gencache.EnsureDispatch("Excel.Application")
+    exc = client.DispatchEx("Excel.Application")
     exc.Visible = 0
     wb = exc.Workbooks.Open(Filename=excelfilename)
     # wb.Worksheets(1).Columns("A").Select
@@ -180,16 +179,20 @@ def delete_blank_rows(excelfilename, n):
         wb.Worksheets(1).Cells(r + 1, 2).HorizontalAlignment = 2
 
         exc.Rows("%d:%d" % (r + 5, r + 5)).Select()
-        exc.Selection.Delete(Shift=client.constants.xlUp)
+        exc.Selection.Delete()
     exc.ActiveWorkbook.Save()
     exc.Quit()
 
 
 class Single_time_point_data(object):
-    def __init__(self, df):
-        if df.iloc[5, 1] != "cm" or df.iloc[5, 2] != "BT":
-            raise ValueError("数据格式有误")
+    # __slots__ = ["time","csv","row1","position","depth","v","d","e","n","larger_counts","larger_counts_2","largest","distance","e6","n6","e_init","n_init","init_v","init_d"]
+    def __init__(self, df, csv):
+        # if df.iloc[5, 1] != "cm" or df.iloc[5, 2] != "BT":
+        #     raise ValueError("数据格式有误")
         self.time = self.read_time(df)
+        self.csv = csv
+        self.row1 = str(df.iloc[0, :].values)
+
         pos = convertNum(df.iloc[3, :2])
         self.position = Coord(pos[0], pos[1])
         self.depth = df.iloc[1, 8:11].values.mean()
@@ -257,15 +260,17 @@ class Single_time_point_data(object):
         self.init_d = direction(self.e_init, self.n_init)
 
     def cal_ave(self, datas):
-        if pd.Series(datas).isnull().values.any():
-            return (datas[1] + 2 * datas[3] + datas[4]) / 4
-        else:
-            return (datas[0] + 2 * datas[1] + 2 * datas[2] +
-                    2 * datas[3] + 2 * datas[4] + datas[5]) / 10
-
-    def set_pos_distance(self, distance):
-        self.distance = distance
-
+        try:
+            if pd.Series(datas).isnull().values.any():
+                return (datas[1] + 2 * datas[3] + datas[4]) / 4
+            else:
+                return (datas[0] + 2 * datas[1] + 2 * datas[2] +
+                        2 * datas[3] + 2 * datas[4] + datas[5]) / 10
+        except:
+            print("* - " * 20)
+            print("WARNING： 计算" + str(datas) + "垂线平均流速时出错，返回值暂定为0")
+            print("* * " * 20)
+            return 0
 
 class Once_survey(object):
     def __init__(
@@ -283,7 +288,6 @@ class Once_survey(object):
             skiprows=3,
             header=None,
             na_values=-32768)
-        os.chdir(r"C:\Users\刘鹏飞\Desktop\test")
         self.dfs = self.split_df(self.Df)
         self.time = csv[-23:-11]
         self.bin = bin
@@ -293,23 +297,26 @@ class Once_survey(object):
 
         for i in self.dfs:
             try:
-                ii = Single_time_point_data(i)
+                ii = Single_time_point_data(i, csv)
                 if ii.position.Latitude == 30000:
                     self.invalid.append(ii)
                     print(str(ii.time) + "时无gps数据")
-                elif ii.position.Longitude > 122.35:
-                    self.invalid.append(ii)
-                    print(str(ii.time) + "时gps数据偏差太大，为" + str(ii.position))
+                # elif ii.position.Longitude > 122.35:
+                #     self.invalid.append(ii)
+                #     print(str(ii.time) + "时gps数据偏差太大，为" + str(ii.position))
                 else:
                     self.Collections.append(ii)
-            except ValueError as Error_message:
-                warnings.warn(csv + "文件中，第" + str(i) + "个读取的数据报错")
-                warnings.warn(Error_message)
+            except:
+                pass
+            # except ValueError as Error_message:
+            #     warnings.warn(csv + "文件中，第" + str(i) + "个读取的数据报错")
+            #     warnings.warn(Error_message)
         self.Points = pd.read_csv(position_file)
         if IF_Draw_raw_points:
             self.draw_raw_points()
         if IF_process:
             self.select(IF_Draw_selected_points)
+
 
     def select(self, IF_Draw_selected_points):
         self.selected_points = {}
@@ -347,7 +354,7 @@ class Once_survey(object):
                     ((selected.v[-1] > 120) and (selected.v[-1] > 2 * selected.v[0]) and (len(selected.v) < 10)) or \
                     ((selected.v[-1] > 50) and (selected.v[-1] > 2 * selected.v.mean())):
                 print("点" + p.Name + "在" + selected.time.strftime("%m/%d %H:%M") +
-                      "时，底层流速偏大,为" + str(selected.v[-1]) + "m/s，将其删除.")
+                      "时，底层流速偏大,为" + str(selected.v[-1]) + "cm/s，将其删除.")
                 del_indices(-1)
                 print("删除之后其流速为" + str(selected.v))
 
@@ -416,9 +423,8 @@ class Once_survey(object):
                       str(selected.largest) +
                       "cm/s")
 
-        for pp in self.selected_points:
-            self.selected_points[pp].set_pos_distance(
-                self.selected_distance[pp])
+        for point, point_datas in self.selected_points.items():
+            point_datas.distance = self.selected_distance[point]  ###########BUG
         for i in self.selected_points.values():
             i.en_fenceng(self.bin, self.blind_area)
 
@@ -437,8 +443,11 @@ class Once_survey(object):
         ax = fig.add_subplot(1, 1, 1)
         ax.plot(self.Points.Longitude, self.Points.Latitude, 'b+')
         for p in self.Points.itertuples():
-            s = p.Name + "^" + "{" + str(self.selected_distance[p.Name]) + "}" + "_{" + str(
-                self.selected_depth[p.Name]) + "(" + str(len(self.selected_points[p.Name].v)) + ")}"
+            try:
+                s = p.Name + "^" + "{" + str(self.selected_distance[p.Name]) + "}" + "_{" + str(
+                    self.selected_depth[p.Name]) + "(" + str(len(self.selected_points[p.Name].v)) + ")}"
+            except KeyError:
+                s = "*" + p.Name + "*"
             s = "{" + s + "}"
             ax.annotate(r'$' + s + r'$', xy=(p.Longitude, p.Latitude))
         for name, selected_point in self.selected_points.items():
@@ -473,13 +482,13 @@ class Once_survey(object):
 
 
 class Process_One_Point_Data(object):
-    def __init__(self, name, point_datas, If_Draw_interpolation=True):
+    def __init__(self, name, point_datas, excelWriter_init, If_Draw_interpolation=True, Threshold_distance=40):
         self.name = name
-        point_datas = ss(point_datas)
-        self.times, self.us, self.vs, self.positions, self.init_depths, self.distances, self.init_vs, self.init_ds = [
-        ], [], [], [], [], [], [], []
+        point_datas = ss(point_datas.dropna())
+        self.times, self.us, self.vs, self.positions, self.init_depths, self.distances, self.init_vs, self.init_ds, self.csvs, self.row1s = [
+                                                                                                                                            ], [], [], [], [], [], [], [], [], []
         for once in point_datas:
-            if once.distance < 80:
+            if once.distance < Threshold_distance:
                 self.distances.append(once.distance)
                 self.times.append(once.time)
                 self.us.append(once.e6)
@@ -488,20 +497,39 @@ class Process_One_Point_Data(object):
                 self.init_depths.append(once.depth)
                 self.init_vs.append(once.init_v)
                 self.init_ds.append(once.init_d)
+                self.csvs.append(once.csv)
+                self.row1s.append(once.row1)
             else:
-                warnings.warn("点" + name + "在" + str(once.time) +
+                warnings.warn("点" + name + "在" + str(once.time)[:19] +
                               "时距离点位太远，距离为" + str(once.distance) + "米，点位已删除")
-        self.us, self.vs = np.array(self.us), np.array(self.vs)
+        columns_name = ["表层", "0.2H", "0.4H", "0.6H", "0.8H", "底层"]
+        try:
+            self.us, self.vs = np.array(self.us), np.array(self.vs)
+            Once_init_u = pd.DataFrame(index=self.times, data=self.us, columns=["U" + nnn for nnn in columns_name])
+            Once_init_v = pd.DataFrame(index=self.times, data=self.vs, columns=["V" + nnn for nnn in columns_name])
+            Once_init_vd = pd.DataFrame(index=self.times,
+                                        data={"depth": self.init_depths, "v": self.init_vs, "d": self.init_ds,
+                                              "csv": self.csvs, 'rows1': self.row1s, 'distances': self.distances,
+                                              "positions": self.positions})
+            pd.concat([Once_init_vd, Once_init_u, Once_init_v], axis=1).sort_index().to_excel(
+                excel_writer=excelWriter_init, sheet_name=name)
+            print(name + "中间过程保存结束。")
+        except:
+            pass
         print("Processing " + str(len(self.times)) + " datas of Point " + name)
-        self.process(
-            If_Draw_interpolation,
-            self.times,
-            self.us,
-            self.vs,
-            self.positions,
-            self.init_depths,
-            self.distances,
-            name)
+        if len(self.times) > 3:
+            self.invalid = False
+            self.process(
+                If_Draw_interpolation,
+                self.times,
+                self.us,
+                self.vs,
+                self.positions,
+                self.init_depths,
+                self.distances,
+                name)
+        else:
+            self.invalid = True
 
     def process(
             self,
@@ -520,26 +548,34 @@ class Process_One_Point_Data(object):
         print("北分量：" + "-" * 10)
         self.Vs = Process_Velocity_Data(times, vs, method=2)
         if If_Draw_interpolation:
-            self.Us.draw_interpolate_2(
-                'Velocity_Interpolation_' + name, self.Vs)
+            try:
+                self.Us.draw_interpolate_2(
+                    'Velocity_Interpolation_' + name, self.Vs)
+            except:
+                warnings.warn(name + "绘图失败，请检查程序")
+                pass
 
         self.new_us, self.new_vs = self.Us.datas, self.Vs.datas
         x = self.Us.x
         x_new = self.Us.x_new
         self.cal_times = self.Us.cal_times
 
-        tck2 = splrep(x, depths, k=1)
-        self.depths = splev(x_new, tck2)
+        if (len(x) / len(x_new) < 1 / 3) or (len(x) < 3):
+            self.depths = np.zeros(len(x_new))
+        else:
+            tck2 = splrep(x, depths, k=1)
+            self.depths = splev(x_new, tck2)
 
         self.positions = pd.DataFrame(times, positions)
         self.distances = pd.DataFrame(times, distances)
         self.v = aoe(velocity, self.Us.ave, self.Vs.ave)
         self.d = aoe(direction, self.Us.ave, self.Vs.ave)
 
+
     def out_put(
             self,
-            excel_file,
-            Excel_writer=None,
+            Excel_writer,
+            magnet_angle,
             sheet_name=None,
             start_row=None):
 
@@ -553,6 +589,9 @@ class Process_One_Point_Data(object):
         self.outDatas.append(self.v)
         self.outDatas.append(self.d)
         df = pd.DataFrame(self.outDatas).T
+        for c in [2, 4, 6, 8, 10, 12, 14]:
+            df.loc[:, c] += magnet_angle
+            df.loc[:, c] = df.loc[:, c].apply(dir_in_360)
 
         self.outDF = pd.DataFrame(
             df.values,
@@ -655,7 +694,10 @@ class Process_Velocity_Data(object):
         for values in self.init_data:
             series = pd.Series(data=values)
             if not series.isnull().values.any():
-                self.y = self.interpolate_2(self.x, values, self.x_new)
+                if (len(values) / len(self.x_new) < 1 / 3) or (len(values) < 3):
+                    self.y = np.zeros(len(self.x_new))
+                else:
+                    self.y = self.interpolate_2(self.x, values, self.x_new)
                 if max(values) > 200:
                     print("---" * 10)
                     print(
@@ -675,9 +717,10 @@ class Process_Velocity_Data(object):
                             index=self.cal_times))
                     print("---" * 10)
                 self.datas.append(self.y)
-                self.datas_all.append(
-                    self.interpolate_2(
-                        self.x, values, self.x_all))
+                if (len(values) / len(self.x_new) < 1 / 3) or (len(values) < 3):
+                    self.datas_all.append(np.zeros(len(self.x_all)))
+                else:
+                    self.datas_all.append(self.interpolate_2(self.x, values, self.x_all))
             else:
                 self.three_storey = True
                 y = np.full(len(self.x_new), np.nan)
@@ -710,7 +753,7 @@ class Process_Velocity_Data(object):
         for i in range(6):
             axs[i, 0].plot(self.x, self.init_data[i], 'go', markersize=1)
             axs[i, 0].plot(self.x_new, self.datas[i], 'r*', markersize=1)
-            axs[i, 0].plot(self.x_all, self.datas_all[i], 'y--', linewidth=0.5)
+            axs[i, 0].plot(self.x_all, self.datas_all[i], 'y--', linewidth=0.5)  # 问题
             axs[i, 0].label_outer()
             axs[i, 1].plot(self.x, datas2.init_data[i], 'go', markersize=1)
             axs[i, 1].plot(self.x_new, datas2.datas[i], 'r*', markersize=1)
@@ -732,23 +775,28 @@ class Process_Velocity_Data(object):
         if not len(cal_times) == 28:
             cal_times = pd.DatetimeIndex(
                 start=t1.round('H'), end=t2.floor('h'), freq='h')
+        if len(cal_times) == 30:
+            cal_times = cal_times[1:-1]
         return cal_times
 
     def interpolate_2(self, x, v, x_new):
-        tck = splrep(x, v, k=2)
-        y = splev(x_new, tck)
 
         tck2 = splrep(x, v, k=1)
         y2 = splev(x_new, tck2)
         c = 0
         try:
-            while((max(y) > max(v) * 1.3) or (max(y) > 200)):
+            tck = splrep(x, v, k=2)
+            y = splev(x_new, tck)
+        except:
+            return y2
+        try:
+            while ((max(y) > max(v) * 1.3) or (max(y) > 200)):
                 y[np.argmax(y)] = y2[np.argmax(y)] / 2 + max(y) / 2
                 c += 1
                 if c > 20:
                     break
             c = 0
-            while((min(y) < min(v) * 1.3) or (min(y) < -200)):
+            while ((min(y) < min(v) * 1.3) or (min(y) < -200)):
                 y[np.argmin(y)] = y2[np.argmin(y)] / 2 + min(y) / 2
                 c += 1
                 if c > 20:
@@ -764,73 +812,103 @@ class Tide_survey(object):
             csv_files,
             pos_file,
             outExcel,
+            initwriter,
+            magnet_angle=0,
             IF_process=False,
             IF_Draw_raw_points=False,
             IF_Draw_selected_points=False,
             If_Draw_interpolation=False,
             if_Draw_Arrows_Others=False,
+            IF_Draw_all_points_current=True,
+            IF_Draw_V_D_Depth=True,
             layer_height=1,
-            blank_area=2.3):
-        datas = []
-        for i in csv_files:
-            print(" - - " * 10 + "\n" + "reading datas from " + i)
+            blank_area=2.3,
+            Threshold_distance=40):
+        datas, threads = [], []
+
+        def read_single_csv(csv):
+            print(" - - " * 10 + "\n" + "reading datas from " + csv)
             Once = Once_survey(
-                i,
-                pos_file,
-                layer_height,
-                blank_area,
-                IF_process,
-                IF_Draw_raw_points,
-                IF_Draw_selected_points)  # 默认为洋山走航设置，盲区为2.3m，层高1m
-            print("- - " * 10)
+                csv=csv,
+                position_file=pos_file,
+                bin=layer_height,
+                blind_area=blank_area,
+                IF_process=IF_process,
+                IF_Draw_raw_points=IF_Draw_raw_points,
+                IF_Draw_selected_points=IF_Draw_selected_points)  # 默认为洋山走航设置，盲区为2.3m，层高1m
+            print("* * " * 10)
             datas.append(Once.selected_points)
+
+        for csv in csv_files:
+            t = threading.Thread(target=read_single_csv, args=(csv,))
+            threads.append(t)
+        for thr in threads:
+            thr.start()
+        for thr in threads:
+            thr.join()
+        print("数据读取全部结束")
         self.DF = pd.DataFrame(datas)
         self.ALL_datas = {}
         excelWriter = pd.ExcelWriter(outExcel)
         row = 0
+        excelWriter_init = pd.ExcelWriter(initwriter)
         for p in self.DF.columns:
-            point_datas = self.DF[p]
-            P = Process_One_Point_Data(p, point_datas, If_Draw_interpolation)
-            P.out_put(
-                excelWriter,
-                excelWriter,
-                sheet_name="走航流速报表",
-                start_row=row)
-            row = row + 40
-            P.display()
-            P.display_init()
-            self.ALL_datas.update({p: P})
-            print("- * OK * -" * 10)
+            point_datas = self.DF[p]  # 有的是1 而不是single_time_point_data
+            P = Process_One_Point_Data(p, point_datas, excelWriter_init, If_Draw_interpolation, Threshold_distance)
+            if not P.invalid == True:
+                P.out_put(
+                    Excel_writer=excelWriter,
+                    magnet_angle=magnet_angle,
+                    sheet_name="走航流速报表",
+                    start_row=row)
+                row = row + 40
+                if IF_Draw_V_D_Depth:
+                    P.display()
+                    P.display_init()
+                self.ALL_datas.update({p: P})
+                print("- * OK * -" * 10)
 
         excelWriter.close()
+        excelWriter_init.close()
         delete_blank_rows(outExcel, len(self.DF.T))
 
         print("OK" * 10)
         if if_Draw_Arrows_Others:
             self.Points = pd.read_csv(pos_file)
 
-            uDF, vDF = [], []
-            for p in self.Points.itertuples():
-                p_data = self.ALL_datas[p.Name]
-                uDF.append(np.round(p_data.Us.ave, 1))
-                vDF.append(np.round(p_data.Vs.ave, 1))
-            uu = pd.DataFrame(uDF, index=self.Points.Name, columns=P.cal_times)
-            vv = pd.DataFrame(vDF, index=self.Points.Name, columns=P.cal_times)
+            uDF, vDF, ALL_times = [], [], P.cal_times
 
-            for time in P.cal_times:
+            for p in self.Points.itertuples():
+                try:
+                    p_data = self.ALL_datas[p.Name]
+                    if len(p_data.cal_times) > len(ALL_times):  # 时间超出范围
+                        ALL_times = p_data.cal_times
+                    uDF.append(np.round(p_data.Us.ave, 1))
+                    vDF.append(np.round(p_data.Vs.ave, 1))
+                except:
+                    uDF.append([0])
+                    vDF.append([0])
+            uu = pd.DataFrame(uDF, index=self.Points.Name, columns=ALL_times)
+            vv = pd.DataFrame(vDF, index=self.Points.Name, columns=ALL_times)
+
+            for time in ALL_times:
                 title = time.strftime("%m-%d %H%M")
                 fig = plt.figure(figsize=(20, 20))
                 ax = fig.add_subplot(111)
                 for i in self.Points.itertuples():
-                    u = uu.loc[i.Name, time]
-                    v = vv.loc[i.Name, time]
-                    V = round(velocity(u, v), 1)
-                    D = round(direction(u, v), 1)
+                    try:
+                        u = uu.loc[i.Name, time]
+                        v = vv.loc[i.Name, time]
+                        V = round(velocity(u, v), 1)
+                        D = round(direction(u, v), 1)
+                        # ax.text(i.X + u , i.Y + v, "v = " + str(V) + "\nd = " + str(D), color='red', size="x-small")
+                        ax.arrow(i.X, i.Y, u, v, width=3, fc="black", ec="ivory")
+                    except:
+                        pass
                     ax.text(i.X, i.Y, i.Name, color='green')
-                    #ax.text(i.X + u , i.Y + v, "v = " + str(V) + "\nd = " + str(D), color='red', size="x-small")
-                    ax.arrow(i.X, i.Y, u, v, width=3, fc="black", ec="ivory")
-                ax.set_xlim(512000, 513342)
-                ax.set_ylim(3386066, 3386910)
+
+                ax.set_xlim(self.Points.X.min() - 300, self.Points.X.max() + 300)
+                ax.set_ylim(self.Points.Y.min() - 300, self.Points.Y.max() + 300)
                 plt.title(str(time))
                 plt.tight_layout()
                 plt.savefig(title + ".png")
@@ -840,7 +918,6 @@ class Tide_survey(object):
                 fig = plt.figure(figsize=(20, 20))
                 ax = fig.add_subplot(111)
                 for time in P.cal_times:
-
                     u = uu.loc[i.Name, time]
                     v = vv.loc[i.Name, time]
                     ax.arrow(0, 0, u, v, width=3, fc="black", ec="ivory")
@@ -851,35 +928,58 @@ class Tide_survey(object):
                 plt.savefig("ALL_Current_Data_of" + i.Name + ".png")
                 plt.close()
 
-            fig = plt.figure(figsize=(20, 20))
-            ax = fig.add_subplot(111)
-            for time in P.cal_times:
-                for i in self.Points.itertuples():
-                    u = uu.loc[i.Name, time]
-                    v = vv.loc[i.Name, time]
-                    V = round(velocity(u, v), 1)
-                    D = round(direction(u, v), 1)
-                    ax.arrow(i.X, i.Y, u, v, width=1, fc="black", ec="ivory")
-            ax.set_xlim(512000, 513342)  # x界限
-            ax.set_ylim(3386066, 3386910)  # y界限
-            plt.title("ALL_Current_Data")
-            plt.tight_layout()
-            plt.savefig("ALL_current_data" + ".png")
-            plt.close()
+            if IF_Draw_all_points_current:
+                fig = plt.figure(figsize=(20, 20))
+                ax = fig.add_subplot(111)
+                for time in P.cal_times:
+                    for i in self.Points.itertuples():
+                        try:
+                            u = uu.loc[i.Name, time]
+                            v = vv.loc[i.Name, time]
+                            V = round(velocity(u, v), 1)
+                            D = round(direction(u, v), 1)
+                            ax.arrow(i.X, i.Y, u, v, width=1, fc="black", ec="ivory")
+                        except:
+                            pass
+                # ax.set_xlim(408000, 412400)六横
+                # ax.set_ylim(3286000, 3290000)
+                ax.set_xlim(self.Points.X.min() - 300, self.Points.X.max() + 300)
+                ax.set_ylim(self.Points.Y.min() - 300, self.Points.Y.max() + 300)
+                plt.title("ALL_Current_Data")
+                plt.tight_layout()
+                plt.savefig("ALL_current_data" + ".png")
+                plt.close()
 
 
-da = []
-pos = r"C:\2019-（GK-2019-0118水）\走航点位坐标.csv"
+pos = r"E:\★★★★★项目★★★★★\2019六横走航\六横水文走航点.csv"
+pos_l = r"E:\★★★★★项目★★★★★\2019六横走航\六横走航 ASCⅡ格式5\六横走航 ASCⅡ格式5\大潮\六横水文走航点（凌清）.csv"
+pos_y = r"E:\★★★★★项目★★★★★\2019六横走航\六横走航 ASCⅡ格式5\六横走航 ASCⅡ格式5\大潮\六横水文走航点mayang.csv"
 # Xiao = Tide_survey(xiao,pos,r"小潮合并.xlsx",IF_process=True,IF_Draw_raw_points=False,IF_Draw_selected_points=False,If_Draw_interpolation=False)
-Da = Tide_survey(
-    da,
-    pos,
-    r"C:\Users\刘鹏飞\Desktop\test\大潮合并aaa.xlsx",
+filedir = (r"E:\★★★★★项目★★★★★\2019六横走航\六横走航 ASCⅡ格式5\六横走航 ASCⅡ格式5\大潮\mayang")
+
+os.chdir(filedir)
+files = os.listdir(filedir)
+# Zhong = Tide_survey(
+#     csv_files=files,
+#     pos_file = pos,
+#     outExcel = r"E:\★★★★★项目★★★★★\2019六横走航\六横走航 ASCⅡ格式5\六横走航 ASCⅡ格式5\中潮结果-ALL.xlsx",
+#     initwriter = r"E:\★★★★★项目★★★★★\2019六横走航\六横走航 ASCⅡ格式5\六横走航 ASCⅡ格式5\中潮原结果-ALL.xlsx",
+#     magnet_angle = -6,#磁偏角，东正西负
+#     IF_process=True,
+#     IF_Draw_raw_points=False,
+#     IF_Draw_selected_points=False,
+#     If_Draw_interpolation=False,
+#     if_Draw_Arrows_Others=True)
+Da_lin = Tide_survey(
+    csv_files=files,
+    pos_file=r"E:\★★★★★项目★★★★★\2019六横走航\六横走航 ASCⅡ格式5\六横走航 ASCⅡ格式5\大潮\六横水文走航点mayang.csv",
+    outExcel=r"E:\★★★★★项目★★★★★\2019六横走航\六横走航 ASCⅡ格式5\六横走航 ASCⅡ格式5\大潮结果-马追222.xlsx",
+    initwriter=r"E:\★★★★★项目★★★★★\2019六横走航\六横走航 ASCⅡ格式5\六横走航 ASCⅡ格式5\大潮原结果-马追2.xlsx",
+    magnet_angle=-6,  # 磁偏角，东正西负
     IF_process=True,
     IF_Draw_raw_points=False,
     IF_Draw_selected_points=False,
     If_Draw_interpolation=False,
+    IF_Draw_V_D_Depth=False,
     if_Draw_Arrows_Others=False)
-#Zhong = Tide_survey(zhong,pos,r"中潮合并.xlsx",IF_process=True,IF_Draw_raw_points=False,IF_Draw_selected_points=False,If_Draw_interpolation=False)
-
 print('OK! ' * 10)
