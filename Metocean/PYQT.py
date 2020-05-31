@@ -656,7 +656,7 @@ class Tide_Site_Tab(QWidget):
         r_in_Group_u = QFormLayout()
         r_in_Group_u.addRow(self.Astronomical_Tide_Analysis)
         r_in_Group_u.addRow(self.analysis_by_init_data)
-        # r_in_Group_u.addRow(self.Theoretical_Mininum_tidal_leval)
+        r_in_Group_u.addRow(self.Theoretical_Mininum_tidal_leval)
 
         self.r_in_Group_u.setLayout(r_in_Group_u)
 
@@ -967,7 +967,7 @@ class Current_Tab(QWidget):
 
         self.show_all_out_Button = QPushButton(
             "查看所有测流结果", clicked=self.show_all_out)
-        self.save_all_out_Button = QPushButton('流速流向分布图???', clicked=self.save_all_out)
+        self.save_all_out_Button = QPushButton('所有流速流向分布图', clicked=self.gen_ALL_distribution_fig)
         self.save_max_out_Button = QPushButton(
             "汇总流速最大值", clicked=self.save_max_out)
         self.save_mean_out_Button = QPushButton(
@@ -1110,7 +1110,21 @@ class Current_Tab(QWidget):
         self.save_all_out()
 
     def save_all_out(self):
+
         self.save_csv(self.all_current_out)
+
+    def gen_ALL_distribution_fig(self):
+        option = QFileDialog.Options()
+        try:
+            os.chdir(self.directory)
+        except:
+            self.directory = QFileDialog.getExistingDirectory(
+                self, "选取生成图片存放文件夹", "C:/", options=option)  # 起始路径
+
+        for Point in self.Point_control:
+            ts = self.Point_control[Point]
+            for tide in ts.tides_control:
+                ts.tides_control[tide].show_distribution(dir=self.directory)
 
     def save_max_out(self):
         self.gen_all_current_out()
@@ -1629,21 +1643,36 @@ class Current_Tab(QWidget):
         except BaseException:
             return 0
         named_points = []
+        layer_name = ['垂线平均', '表层', '0.2H', '0.4H', '0.6H', '0.8H', '底层']
         for pos in self.positions.itertuples():
             c_of_one_point = [
                 point_c for _,
                             point_c in c.items() if point_c.point == pos.name]
             for every_c in c_of_one_point:
                 every_c.location(x=pos.x, y=pos.y)
-                data = every_c.ceng_processed[self.draw_cengshu.currentIndex(
-                )].data
-                # data = data[data['t'].apply(lambda t: t.minute) == 0]
-                for iii in range(len(data)):
-                    plot_line2(every_c.x, every_c.y, data.loc[iii, 'v'], data.loc[iii, 'd'],
-                               tuceng=str(data.loc[iii, 't']).replace(":", ""),
-                               parameter=self.cad_parameter.value(), drawing=drawing)
+                # 此处多加一处循环画不同层数的流矢图
+                for i_lay, name_lay in enumerate(layer_name):
 
-                    # plot_line(every_c.x,every_c.y, data['v'], data['d'],tuceng= every_c.tide_type+self.draw_cengshu.currentText(), parameter=self.cad_parameter.value(),drawing=drawing)
+                    data = every_c.ceng_processed[i_lay].data
+                    # data = data[data['t'].apply(lambda t: t.minute) == 0]
+                    for iii in range(len(data)):
+                        # 下方为逐时分图层绘制流矢图（只画选中的一层）
+                        # plot_line2(every_c.x, every_c.y, data.loc[iii, 'v'], data.loc[iii, 'd'],
+                        #            tuceng=str(data.loc[iii, 't']).replace(":", ""),
+                        #            parameter=self.cad_parameter.value(), drawing=drawing)
+
+                        # 下方为合并同一潮次至同一图层，分图层绘制流矢图（共画六层三潮，不需选择哪一层）需要多加1641行一层循环
+                        plot_line2(every_c.x, every_c.y, data.loc[iii, 'v'], data.loc[iii, 'd'],
+                                   tuceng=every_c.tide_type + name_lay,
+                                   parameter=self.cad_parameter.value(), drawing=drawing)
+
+                        # 下方为合并同一潮次至一图层，（只画一层）
+                        # plot_line2(every_c.x, every_c.y, data.loc[iii, 'v'], data.loc[iii, 'd'],
+                        #             tuceng=every_c.tide_type+self.draw_cengshu.currentText(),
+                        #             parameter=self.cad_parameter.value(), drawing=drawing)
+
+                        # 下方为最开始绘制流矢图对应的函数
+                        # plot_line(every_c.x,every_c.y, data['v'], data['d'],tuceng= every_c.tide_type+self.draw_cengshu.currentText(), parameter=self.cad_parameter.value(),drawing=drawing)
 
             if every_c.point not in named_points:
                 text = dxf.text(
@@ -1960,10 +1989,20 @@ class Single_Tide_tab(QWidget):  # 需根据从报表导入重构
         fig = c[self.Point +
                 self.tide_type].display(self.filename +
                                         self.Point +
-                                        self.tide_type)
+                                        self.tide_type + ".png")
         # self.signal.show_current_arrow_signal.emit(fig)
 
-    def show_distribution(self):
+    def show_distribution(self, dir=None):
+        if dir:
+            os.chdir(dir)
+        else:
+            option = QFileDialog.Options()
+            try:
+                os.chdir(self.directory)
+            except:
+                self.directory = QFileDialog.getExistingDirectory(
+                    self, "选取生成图片存放文件夹", "C:/", options=option)  # 起始路径
+                os.chdir(self.directory)
         fig = c[self.Point + self.tide_type].disturbution_plot()
 
     def save_output(self):
