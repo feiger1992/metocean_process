@@ -426,6 +426,7 @@ class Current_pre_process(object):
             top_ratio,
             button_ratio,
             reverse):
+        # zongcengshu =  zongcengshu - 1 #20200219 六横用倒数第二层底层数据
         depth = first_bin + bin * (zongcengshu + 1)
         if zongcengshu == 1:  # 只有两层的情况
             h_6_e = self.e['e1'][t]
@@ -783,7 +784,7 @@ class Single_Tide_Point(One_Current_Point):
         data = data.loc[data['time'].dropna().index, :]
 
         self.cengs = []
-        if self.cengshu == 6:
+        if ((self.cengshu == 6) or (self.cengshu == 3) or (self.cengshu == 2)):
             try:
                 self.cengs.append(data[['time', 'v', 'd']])
             except BaseException:
@@ -1064,10 +1065,10 @@ class Single_Tide_Point(One_Current_Point):
 
         data = self.ceng_processed[ceng].data
         data = data[data['t'].apply(lambda t: t.minute) == 0]
-        if self.cengshu == 6:
-            cengshu_name = ['垂线平均', '表层', '0.2层', '0.4层', '0.6层', '0.8层', '底层']
-        else:
-            cengshu_name = ['垂线平均', '表层', '中层', '底层']
+        # if self.cengshu == 6:
+        cengshu_name = ['垂线平均', '表层', '0.2层', '0.4层', '0.6层', '0.8层', '底层']
+        # else:
+        #     cengshu_name = ['垂线平均', '表层', '中层', '底层']
         if not drawing:
             drawing = dxf.drawing(self.point + '流速矢量图.dxf')
         else:
@@ -1083,7 +1084,10 @@ class Single_Tide_Point(One_Current_Point):
 
     def display(self, fig_file=r"C:\fig.png"):
 
-        parameter = 0.95 / np.nanmax(self.ceng_processed[1].data['v'].values)
+        try:
+            parameter = 0.95 / np.nanmax(self.ceng_processed[1].data['v'].values)
+        except:
+            parameter = 0.95 / np.nanmax(self.ceng_processed[2].data['v'].values)
         if parameter == np.nan:
             print('绘图参数为Nan，请检查数据')
         if parameter == np.inf:
@@ -1211,7 +1215,7 @@ class Single_Tide_Point(One_Current_Point):
             pad=1)
         ax.tick_params(axis='x', colors='black', labelsize=15, pad=2)
         ax.grid(color='black', linestyle=':', linewidth=1, alpha=1)
-        title = self.point + " " + ' 流速流向分布频级图'
+        title = self.point + " " + self.tide_type + ' 流速流向分布频级图'
         ax.set_title(title, {'fontsize': 20})
         fig_file = self.filename[-10:] + title + '.png'
         fig.savefig(
@@ -1281,9 +1285,14 @@ class Read_Report():
             return T, P
 
         def format_df(df):
-            df = df.set_index(pd.to_datetime(df.index, errors='coerce'))
-            df = df.reset_index().dropna().set_index('index')
-            df = df.dropna(axis=1)
+            df = df.set_index(pd.to_datetime(df.iloc[:, 1], errors='coerce'))  # 不用将时间放到第一列即可
+            # df = df.reset_index().dropna().set_index('index') 读入只有三层数据时候会全部删除数据，因此改为一下四行
+            df = df.loc[df.index.dropna(), :]  # 去除无效时间/多余行
+            # df = df.iloc[:,1:]#去除第一列
+            df = df.drop(df.columns[1], axis=1)
+            if not len(df.T) == 17:
+                df = df.dropna(axis=1)  # 去除多余列
+            df.loc[:, df.isnull().sum() != 0] = 0.00  # 非六层情况时，填充无数据部分
 
             try:
                 df.columns = [
@@ -1358,6 +1367,7 @@ class Read_Report():
                 df = excel.parse(sheet_name=i)
                 dfs = split_df(df)
                 every_page = sort_df(dfs)
+                cengshu = 6
                 while True:
                     try:
                         ii = next(every_page)
@@ -1365,20 +1375,26 @@ class Read_Report():
                         print('*' * 10)
                         print(i)
                         break
+                    if (((ii.Data != 0).sum() == 0)).sum() == 6:
+                        cengshu = 3
+                    if (((ii.Data != 0).sum() == 0)).sum() == 8:
+                        cengshu = 2
+
                     Single_Tide_Point_data = Single_Tide_Point(
                         filename=filename,
                         point=ii.Point,
                         tide_type=ii.Tide_type,
                         angle=None,
                         format_report=True,
-                        data=ii.Data)
+                        data=ii.Data,
+                        cengshu=cengshu)
                     if ii.Point in c:
                         c[ii.Point].update(
                             {ii.Tide_type: Single_Tide_Point_data})
                     else:
                         c.update(
                             {ii.Point: {ii.Tide_type: Single_Tide_Point_data}})
-                    print(ii.Point + ii.Tide_type + 'OK')
+                    print(ii.Point + ii.Tide_type + str(cengshu) + '层载入OK')
             self.points = sorted(list(c.keys()))
             self.tide_type = c[self.points[0]].keys()
             for i in self.points:
@@ -1668,13 +1684,11 @@ if __name__ == "__main__":
         current.preprocess()
         current.display()
         print(PointTypeFile.point + PointTypeFile.type + current.out_times())
-
     def process_f(i, x, y, f):
         c = Single_Tide_Point(i, '小潮', 'MX1', 180)
         c.preprocess()
         c.location(x=x, y=y)
         c.draw_dxf(parameter=2, drawing=f)
-
     def gen_fig(csv):
         print(csv[-8:-4])
         sss = 0
@@ -1687,3 +1701,4 @@ if __name__ == "__main__":
                 ccc.display(r"C:\Users\刘鹏飞\Desktop\1\t" + str(sss) + ".png")
                 sss = sss + 1
                 print('OK\n', '*' * 10)
+

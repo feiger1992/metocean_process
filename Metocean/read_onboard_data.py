@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+from datetime import datetime
 import numpy as np
 import pandas as pd
 import os
@@ -161,8 +162,6 @@ def delete_blank_rows(excelfilename, n):
     exc = client.DispatchEx("Excel.Application")
     exc.Visible = 0
     wb = exc.Workbooks.Open(Filename=excelfilename)
-    # wb.Worksheets(1).Columns("A").Select
-    #exc.Selection.ColumnWidth = 25
 
     wb.Worksheets(1).Columns("A").ColumnWidth = 25
     for i in range(n, -1, -1):
@@ -170,7 +169,7 @@ def delete_blank_rows(excelfilename, n):
         x = exc.Range("A%s:P%s" % (r + 1, r + 2))
         for border_id in range(7, 13):
             x.Borders(border_id).LineStyle = None
-            # x.Borders(border_id).Weight=3
+            x.Borders(border_id).Weight = 3  # 0529调整输出格式
         x.Borders(9).LineStyle = 1
 
         exc.Range("B%s:P%s" % (r + 1, r + 2)).MergeCells = False
@@ -227,7 +226,8 @@ class Single_time_point_data(object):
             tck = splrep(x, v, k=1)
             y_1 = splev(x_1, tck).item()
             if abs(y_1) > 200:
-                print("*" * 20)
+                print(" * " * 20)
+                print(" 插值结果流速大于两米 ")
             x_2 = x_new[1:]
             try:
                 y_2 = self.interpolate(x, v, x_2)
@@ -247,9 +247,13 @@ class Single_time_point_data(object):
             d2, d4, d6, d8 = dep * 0.2, dep * 0.4, dep * 0.6, dep * 0.8
             v2, v4, v6, v8 = self.interpolate(depths, datas, [d2, d4, d6, d8])
             return top, v2, v4, v6, v8, bottom
+        # if len(datas) == 2:#0529 全部输出六层法
+        #     v6 = datas[0] / 2 + datas[1] / 2
+        #     return np.nan, datas[0] * 1.05, np.nan, v6, bottom, np.nan
+
         if len(datas) == 2:
             v6 = datas[0] / 2 + datas[1] / 2
-            return np.nan, datas[0] * 1.05, np.nan, v6, bottom, np.nan
+            return datas[0] * 1.05, datas[0] * 0.95, datas[0] * 0.85, v6, bottom * 1.05, bottom
 
     def en_fenceng(self, bin, blind_area):
         self.e6 = self.fenceng(self.e, bin, blind_area)
@@ -827,7 +831,7 @@ class Tide_survey(object):
         datas, threads = [], []
 
         def read_single_csv(csv):
-            print(" - - " * 10 + "\n" + "reading datas from " + csv)
+            print(" - - " * 10 + "\n" + "reading datas from " + csv + "@" + str(datetime.now()))
             Once = Once_survey(
                 csv=csv,
                 position_file=pos_file,
@@ -839,7 +843,7 @@ class Tide_survey(object):
             print("* * " * 10)
             datas.append(Once.selected_points)
 
-        for csv in csv_files:
+        for csv in csv_files:  # 0528多线程读取文件
             t = threading.Thread(target=read_single_csv, args=(csv,))
             threads.append(t)
         for thr in threads:
@@ -951,12 +955,12 @@ class Tide_survey(object):
                 plt.close()
 
 
-pos = r"E:\★★★★★项目★★★★★\2019六横走航\六横水文走航点.csv"
+pos = r"C:\2020浙江交通集团舟山建筑工业化分公司预制基地码头工程\数据处理\走航\马岙走航测点坐标.csv"
 pos_l = r"E:\★★★★★项目★★★★★\2019六横走航\六横走航 ASCⅡ格式5\六横走航 ASCⅡ格式5\大潮\六横水文走航点（凌清）.csv"
 pos_y = r"E:\★★★★★项目★★★★★\2019六横走航\六横走航 ASCⅡ格式5\六横走航 ASCⅡ格式5\大潮\六横水文走航点mayang.csv"
 # Xiao = Tide_survey(xiao,pos,r"小潮合并.xlsx",IF_process=True,IF_Draw_raw_points=False,IF_Draw_selected_points=False,If_Draw_interpolation=False)
-filedir = (r"E:\★★★★★项目★★★★★\2019六横走航\六横走航 ASCⅡ格式5\六横走航 ASCⅡ格式5\大潮\mayang")
-
+filedir = (r"C:\2020浙江交通集团舟山建筑工业化分公司预制基地码头工程\数据处理\走航\中潮")
+# 250行 改为全部输出六层
 os.chdir(filedir)
 files = os.listdir(filedir)
 # Zhong = Tide_survey(
@@ -972,14 +976,14 @@ files = os.listdir(filedir)
 #     if_Draw_Arrows_Others=True)
 Da_lin = Tide_survey(
     csv_files=files,
-    pos_file=r"E:\★★★★★项目★★★★★\2019六横走航\六横走航 ASCⅡ格式5\六横走航 ASCⅡ格式5\大潮\六横水文走航点mayang.csv",
-    outExcel=r"E:\★★★★★项目★★★★★\2019六横走航\六横走航 ASCⅡ格式5\六横走航 ASCⅡ格式5\大潮结果-马追222.xlsx",
-    initwriter=r"E:\★★★★★项目★★★★★\2019六横走航\六横走航 ASCⅡ格式5\六横走航 ASCⅡ格式5\大潮原结果-马追2.xlsx",
+    pos_file=pos,
+    outExcel=r"C:\2020浙江交通集团舟山建筑工业化分公司预制基地码头工程\数据处理\走航\中潮结果-0530（磁偏角修复）.xlsx",
+    initwriter=r"C:\2020浙江交通集团舟山建筑工业化分公司预制基地码头工程\数据处理\走航\中潮原结果-0530.xlsx",
     magnet_angle=-6,  # 磁偏角，东正西负
     IF_process=True,
-    IF_Draw_raw_points=False,
-    IF_Draw_selected_points=False,
-    If_Draw_interpolation=False,
-    IF_Draw_V_D_Depth=False,
-    if_Draw_Arrows_Others=False)
+    IF_Draw_raw_points=True,
+    IF_Draw_selected_points=True,
+    If_Draw_interpolation=True,
+    IF_Draw_V_D_Depth=True,
+    if_Draw_Arrows_Others=True)
 print('OK! ' * 10)

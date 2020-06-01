@@ -236,26 +236,27 @@ class Tide(object):
                     temp_data.loc[x, 'raising_time'] = x - temp_data[(
                         temp_data.if_min) & (temp_data.format_time < x)].format_time.max()
                     temp_data.loc[x, 'diff'] = temp_data.loc[x, 'tide'] - temp_data.loc[temp_data[
-                        (
-                            temp_data.if_min) & (
-                            temp_data.format_time < x)].format_time.max(), 'tide']
+                                                                                            (
+                                                                                                temp_data.if_min) & (
+                                                                                                    temp_data.format_time < x)].format_time.max(), 'tide']
                 except BaseException:
                     pass
             return temp_data
 
             # 筛选极值
+
         # 根据潮差与涨落潮历时筛选
         temp_data = calculate_time_diff(temp_data=temp_data)
 
-        temp_data.loc[temp_data[temp_data['diff'] < 1].index, 'if_max'] = False
-        temp_data.loc[temp_data[temp_data['diff'] < 1].index, 'if_min'] = False
+        temp_data.loc[temp_data[temp_data['diff'] < 10].index, 'if_max'] = False
+        temp_data.loc[temp_data[temp_data['diff'] < 10].index, 'if_min'] = False
         temp_data.loc[temp_data[temp_data['diff']
-                                < 1].index, 'raising_time'] = np.nan
+                                < 10].index, 'raising_time'] = np.nan
         temp_data.loc[temp_data[temp_data['diff']
-                                < 1].index, 'ebb_time'] = np.nan
-        temp_data.loc[temp_data[temp_data['diff'] < 1].index, 'diff'] = np.nan
+                                < 10].index, 'ebb_time'] = np.nan
+        temp_data.loc[temp_data[temp_data['diff'] < 10].index, 'diff'] = np.nan
 
-        # 2018/11/4 潮差从5改为20
+        # 2020/5/18 潮差改为10
 
         temp_data.loc[temp_data[temp_data['raising_time'] <
                                 datetime.timedelta(hours=2)].index, 'diff'] = np.nan
@@ -1222,10 +1223,12 @@ class Process_Tide(Tide):
         plt.savefig(filename, dpi=200)
 
 if __name__ == "__main__":
-    filename = r"E:\★★★★★项目★★★★★\★★★★埃及汉纳维6000mw清洁煤电项目-水文测验★★★★\实测数据\提交\潮位-程序读取 0116.xlsx"
+    filename = r"E:\★★★★★项目★★★★★\★★★★埃及汉纳维6000mw清洁煤电项目-水文测验★★★★\长期潮位推算.xlsx"
     t = Process_Tide(filename, only_first_sheet=True)
-    t.preprocess(t.sites[0], 85)
-    t.plot_accumulated_possibility(if_extreme=False)
-    t.plot_accumulated_possibility(if_extreme=True)
+    t.preprocess(t.sites[0], 90)
+    t.out_put_mid_data(r"C:\Users\刘鹏飞\Desktop\埃及-中间.xlsx", sitename=t.sites[0])
+    # t.harmonic_analysis(site = "埃及")
+    # t.plot_accumulated_possibility(if_extreme=False)
+    # t.plot_accumulated_possibility(if_extreme=True)
 
-    print('***** OK *****')
+    # print('***** OK *****')

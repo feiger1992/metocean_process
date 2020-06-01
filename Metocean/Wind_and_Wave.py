@@ -180,26 +180,63 @@ class Wind_Wave():
         unit = self.get_unit(item)
         if not self.group_month:
             self.diff_month()
-        for i,j in self.group_month:
+        for i, j in self.group_month:
 
             if self.if_multiple:
-                var,dir =j[item]['Speed'],j[item]['Dir']
+                var, dir = j[item]['Speed'], j[item]['Dir']
 
             else:
-                var,dir = j[item],j['Dir']
+                var, dir = j[item], j['Dir']
 
             self.plot_data_of_one_item(item=item, dir=dir, var=var, bins=bins,
                                        title=str(i[0]) + '年' + str(i[1]) + "月", unit=unit, **kwargs)
+
+
+class Wave_Ensemble(object):
+    def __init__(self, list_of_height, Hz=1):
+        diff_h = lambda ll: ll.max() - ll.min()
+        df = pd.DataFrame({'h': list_of_height})
+        df['diff'] = df['h'] - df['h'].mean()
+        for i in range(1, len(list_of_height)):
+            if ((df.loc[i - 1, 'diff'] < 0) and (df.loc[i, 'diff'] >= 0)):
+                df.loc[i, 'if_zero'] = True
+        df['H'] = pd.NaT
+        df['T'] = pd.NaT
+        list_i = df[df['if_zero'] == True].index
+        self.N = len(list_i) - 1
+        for i in range(1, len(list_i)):
+            df.loc[list_i[i], 'H'] = diff_h(df.loc[list_i[i - 1]:list_i[i], 'h'])
+            df.loc[list_i[i], 'T'] = (list_i[i] - list_i[i - 1]) / Hz  # 一秒1数据
+        self.df_sorted = df.sort_values(by='H', ascending=False, na_position='last')
+
+    def process(self):
+        self.Hmax = self.df_sorted['H'].max()
+        self.Tmax = self.df_sorted[self.df_sorted['H'] == self.df_sorted['H'].max()]['T'].values[0]
+        self.H10 = self.df_sorted.iloc[0:int(self.N / 10), -2].mean()
+        self.T10 = self.df_sorted.iloc[0:int(self.N / 10), -1].mean()
+        self.H3 = self.df_sorted.iloc[0:int(self.N / 3), -2].mean()
+        self.T3 = self.df_sorted.iloc[0:int(self.N / 3), -1].mean()
+        self.Hmean = self.df_sorted['H'].mean()
+        self.Tmean = self.df_sorted['T'].mean()
+
+    def output(self):
+        dic_columns = ["Hmax", "Tmax", "H10", "T10", "H3", "T3", "Hmean", "Tmean"]
+        self.outputdf = pd.DataFrame(
+            data=[self.Hmax, self.Tmax, self.H10, self.T10, self.H3, self.T3, self.Hmean, self.Tmean],
+            index=dic_columns)
+        return self.outputdf
+
+
 if __name__ == "__main__":
     filename = r"E:\codes\metocean_process\debug_files\Wave_test_file.xlsx"
     filename2 = r"E:\codes\metocean_process\debug_files\wind.xlsx"
-    w1 = Wind_Wave(filename2,if_multiple=True,isEWSN=True,is_SI_v=True)
+    w1 = Wind_Wave(filename2, if_multiple=True, isEWSN=True, is_SI_v=True)
     w1.set_save_dir(r"E:\codes\metocean_process\debug_files\wind_fig")
-    #units = {'Hmax':'m', 'Tmax':'s', 'Hs':'m', 'Ts':'s', 'Hm':'m', 'Tm':'s', 'H1/10':'m', 'T1/10':'s', 'Tp':'s'}
-    #w1.set_units(**units)
+    # units = {'Hmax':'m', 'Tmax':'s', 'Hs':'m', 'Ts':'s', 'Hm':'m', 'Tm':'s', 'H1/10':'m', 'T1/10':'s', 'Tp':'s'}
+    # w1.set_units(**units)
     ####****************风力小于一定风速不纳入统计
     for i in w1.items:
-        w1.plot_each_data_of_one_item(i,N = 5,ang=270,rmax = 35,bins = np.linspace(0,15,15))
+        w1.plot_each_data_of_one_item(i, N=5, ang=270, rmax=35, bins=np.linspace(0, 15, 15))
     print('OK')
 """
 ax = WindroseAxes.from_ax()
