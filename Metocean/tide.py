@@ -677,7 +677,7 @@ class Process_Tide(Tide):
                 # 表头
                 for i in o_clock.index:
                     t = []
-                    h = o_clock.get_value(i, 'tide') * alpha
+                    h = o_clock.loc[i, 'tide'] * alpha
                     if len(x.month[site]) != 1:
                         hanghanghang = i.day
                     else:
