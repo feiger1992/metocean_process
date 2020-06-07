@@ -12,6 +12,7 @@ import utide
 from matplotlib.dates import date2num
 from windrose import WindroseAxes
 import matplotlib.cm as cm
+import pickle
 
 plt.rcParams['font.sans-serif'] = ['SimHei']
 plt.rcParams['axes.unicode_minus'] = False
@@ -1229,7 +1230,7 @@ class Single_Tide_Point(One_Current_Point):
         print(self.point + self.tide_type + 'OK')
 
 class Read_Report():
-    def __init__(self, filename):
+    def __init__(self, filename, sediment=False):
         def search_row(row, key):
             got = []
             for i, s in enumerate(row.astype(str).tolist()):
@@ -1256,6 +1257,7 @@ class Read_Report():
 
         def split_df(df):
             d, dfs = select_df(df), []
+            d[-1] += 1  # 报表最后一列数据
             for i in range(round(len(d) / 2)):
                 dfs.append(df.iloc[d[2 * i]:d[2 * i + 1], :])
             return dfs
@@ -1284,70 +1286,110 @@ class Read_Report():
                     T = sep(i)
             return T, P
 
-        def format_df(df):
-            df = df.set_index(pd.to_datetime(df.iloc[:, 1], errors='coerce'))  # 不用将时间放到第一列即可
-            # df = df.reset_index().dropna().set_index('index') 读入只有三层数据时候会全部删除数据，因此改为一下四行
-            df = df.loc[df.index.dropna(), :]  # 去除无效时间/多余行
-            # df = df.iloc[:,1:]#去除第一列
-            df = df.drop(df.columns[1], axis=1)
-            if not len(df.T) == 17:
-                df = df.dropna(axis=1)  # 去除多余列
-            df.loc[:, df.isnull().sum() != 0] = 0.00  # 非六层情况时，填充无数据部分
+        if not sediment:
+            def format_df(df):
+                df = df.set_index(pd.to_datetime(df.iloc[:, 1], errors='coerce'))  # 不用将时间放到第一列即可
+                # df = df.reset_index().dropna().set_index('index') 读入只有三层数据时候会全部删除数据，因此改为一下四行
+                df = df.loc[df.index.dropna(), :]  # 去除无效时间/多余行
+                # df = df.iloc[:,1:]#去除第一列
+                df = df.drop(df.columns[1], axis=1)
+                if not len(df.T) == 17:
+                    df = df.dropna(axis=1)  # 去除多余列
+                df.loc[:, df.isnull().sum() != 0] = 0.00  # 非六层情况时，填充无数据部分
 
-            try:
-                df.columns = [
-                    'depth',
-                    'v_0',
-                    'd_0',
-                    'v_2',
-                    'd_2',
-                    'v_4',
-                    'd_4',
-                    'v_6',
-                    'd_6',
-                    'v_8',
-                    'd_8',
-                    'v_10',
-                    'd_10',
-                    'v_max',
-                    'd_max',
-                    'v',
-                    'd']
-            except BaseException:
-                df.columns = [
-                    'depth',
-                    'v_0',
-                    'd_0',
-                    'v_2',
-                    'd_2',
-                    'v_4',
-                    'd_4',
-                    'v_6',
-                    'd_6',
-                    'v_8',
-                    'd_8',
-                    'v_10',
-                    'd_10',
-                    'v',
-                    'd']
-            df['time'] = df.index
-            return df.reindex(['time',
-                               'depth',
-                               'v_0',
-                               'd_0',
-                               'v_2',
-                               'd_2',
-                               'v_4',
-                               'd_4',
-                               'v_6',
-                               'd_6',
-                               'v_8',
-                               'd_8',
-                               'v_10',
-                               'd_10',
-                               'v',
-                               'd'],
-                              axis=1).reset_index()
+                try:
+                    df.columns = [
+                        'depth',
+                        'v_0',
+                        'd_0',
+                        'v_2',
+                        'd_2',
+                        'v_4',
+                        'd_4',
+                        'v_6',
+                        'd_6',
+                        'v_8',
+                        'd_8',
+                        'v_10',
+                        'd_10',
+                        'v_max',
+                        'd_max',
+                        'v',
+                        'd']
+                except BaseException:
+                    df.columns = [
+                        'depth',
+                        'v_0',
+                        'd_0',
+                        'v_2',
+                        'd_2',
+                        'v_4',
+                        'd_4',
+                        'v_6',
+                        'd_6',
+                        'v_8',
+                        'd_8',
+                        'v_10',
+                        'd_10',
+                        'v',
+                        'd']
+                df['time'] = df.index
+                return df.reindex(['time',
+                                   'depth',
+                                   'v_0',
+                                   'd_0',
+                                   'v_2',
+                                   'd_2',
+                                   'v_4',
+                                   'd_4',
+                                   'v_6',
+                                   'd_6',
+                                   'v_8',
+                                   'd_8',
+                                   'v_10',
+                                   'd_10',
+                                   'v',
+                                   'd'],
+                                  axis=1).reset_index()
+        else:
+            def format_df(df):
+                df = df.set_index(pd.to_datetime(df.iloc[:, 2], errors='coerce'))  # 时间在第三列
+                # df = df.reset_index().dropna().set_index('index') 读入只有三层数据时候会全部删除数据，因此改为一下四行
+                df = df.loc[df.index.dropna(), :]  # 去除无效时间/多余行
+                # df = df.iloc[:,1:]#去除第一列
+                df = df.drop(df.columns[:3], axis=1)
+                if not len(df.T) in [4, 7]:
+                    df = df.dropna(axis=1)  # 去除多余列
+                if len(df.T) == 7:
+                    df.columns = [
+                        'Surface',
+                        '0.2H',
+                        '0.4H',
+                        '0.6H',
+                        '0.8H',
+                        'Bottom',
+                        'Ave']
+                if len(df.T) == 4:  # 正常时为表中底，水浅时为268
+                    # df.columns = [
+                    #     'Surface',
+                    #     '0.6H',
+                    #     'Bottom',
+                    #     'Ave']
+                    df.columns = [
+                        '0.2H',
+                        '0.6H',
+                        '0.8H',
+                        'Ave']
+                df['time'] = df.index
+                return df.reindex(['time',
+                                   'Surface',
+                                   '0.2H',
+                                   '0.4H',
+                                   '0.6H',
+                                   '0.8H',
+                                   'Bottom',
+                                   'Ave'],
+                                  axis=1).reset_index()
 
         def sort_df(dfs):
             every_df = namedtuple(
@@ -1396,9 +1438,9 @@ class Read_Report():
                             {ii.Point: {ii.Tide_type: Single_Tide_Point_data}})
                     print(ii.Point + ii.Tide_type + str(cengshu) + '层载入OK')
             self.points = sorted(list(c.keys()))
-            self.tide_type = c[self.points[0]].keys()
+            self.tide_type = list(c[self.points[0]].keys())
             for i in self.points:
-                if c[i].keys() == self.tide_type:
+                if len(c[i].keys()) == len(self.tide_type):
                     pass
                 else:
                     print('点' +
@@ -1672,33 +1714,101 @@ def Spring_or_Neap(day):
         return "Moderate"
 
 
+def plot_sediment(file, outdir=None):
+    if outdir:
+        os.chdir(outdir)
+    c = Read_Report(r"C:\2020汕尾渔港选址方案水文测验GK-2020-0030水\实测数据\附录C：含沙量报表-程序读取.xls", sediment=True)
+    for P_name, P in c.data.items():
+        for Tidetype, single_survey in P.items():
+            countourf_sand_consistency(Tidetype + P_name + "含沙量分布图", single_survey.data)
+
+
+def countourf_sand_consistency(title, df):
+    df = df.dropna(axis=1).set_index('time').iloc[:, 1:-1]
+    if len(df.T) == 3:
+        y = [0.2, 0.4, 0.8]  # 汕尾特殊情况，0.2、0.6、0.8三层，其他地方应该为0，0.6，1
+    if len(df.T) == 6:
+        y = [0, 0.2, 0.4, 0.6, 0.8, 1]
+    x = range(len(df))
+    fig, ax = plt.subplots(figsize=(14, 3), dpi=100)
+    CS = ax.contourf(x, y, df.T.values, cmap=plt.cm.Greys, vmin=0)
+    plt.xticks(range(len(df)), df.index.strftime('%H:%M'), rotation=90)
+    Y_index = df.columns.to_list()
+    Y_index.reverse()
+    plt.yticks(y, Y_index)  # 倒序的columns
+    cbar = fig.colorbar(CS, pad=0.002)
+    cbar.set_label('含沙量' + '$(kg/m^3)$')
+    # ax.clabel(CS, fk(CS.levels), inline=True, fontsize=10,colors  = 'k', fmt = '%.2f')
+    ax.clabel(CS, inline=False, fontsize=10, colors='k', fmt='%.2f')
+    ax.set_title(title)
+    plt.tight_layout()
+    plt.savefig(title + ".png", dpi=200)
+    print(title + "出图完成。")
+    plt.close()
+
+
+def cal_sediment_tranfer(sed_file, current_file, DictOfColumn):
+    # DictOfColumn = {'v_2':'0.2H','v_6':'0.6H','v_8':'0.8H'}
+    s = Read_Report(sed_file, sediment=True)
+    c = Read_Report(current_file)
+
+    for Pname, P in s.data.items():
+        for Tide, df in P.items():
+            df_current = c.data[Pname][Tide].data.set_index('time')
+            df_sediment = df.data.set_index('time')
+            columns = ['v_2', 'v_6', 'v_8']
+            for column in columns:
+                for index in df_sediment.index:
+                    # print(Pname + Tide + column +" " + str(index) + "这就搞定~")
+                    df_current.loc[index, column] = df_current.loc[index, column] * df_sediment.loc[
+                        index, DictOfColumn[column]]  # 将流速换算为输沙量
+            c.data[Pname][Tide].data = df_current.loc[df_sediment.index]
+            c.data[Pname][Tide].data = c.data[Pname][Tide].data.fillna({'v_6': 0})
+
+            c.data[Pname][Tide].data.loc[:, 'time'] = c.data[Pname][Tide].data.index
+            c.data[Pname][Tide].data.loc[:, 'Unnamed:1'] = c.data[Pname][Tide].data.index
+
+            c.data[Pname][Tide].data = c.data[Pname][Tide].data.reindex(
+                ['Unnamed:1', 'time', 'depth', 'v_0', 'd_0', 'v_2', 'd_2', 'v_4', 'd_4', 'v_6', 'd_6', 'v_8', 'd_8',
+                 'v_10', 'd_10', 'v', 'd'], axis=1).reset_index(drop=True)
+    return c
+
+
 if __name__ == "__main__":
-    def process(PointTypeFile):
-        current = Single_Tide_Point(
-            PointTypeFile.file,
-            PointTypeFile.type,
-            PointTypeFile.point,
-            angle=PointTypeFile.angle,
-            ang=5,
-            zhang_or_luo=True)
-        current.preprocess()
-        current.display()
-        print(PointTypeFile.point + PointTypeFile.type + current.out_times())
-    def process_f(i, x, y, f):
-        c = Single_Tide_Point(i, '小潮', 'MX1', 180)
-        c.preprocess()
-        c.location(x=x, y=y)
-        c.draw_dxf(parameter=2, drawing=f)
-    def gen_fig(csv):
-        print(csv[-8:-4])
-        sss = 0
-        c = Read_Report(csv)
+    s = r"C:\GK-2020-0030水\实测数据\附录C：含沙量报表-程序读取.xls"
+    c = r"C:\GK-2020-0030水\实测数据\附录B：潮流观测报表-程序读取.xlsx"
+    D = {'v_2': '0.2H', 'v_6': '0.6H', 'v_8': '0.8H'}
+    sediment_tranfer_result = cal_sediment_tranfer(s, c, D)
+    f = open(r"C:\GK-2020-0030水\实测数据\报告撰写\含沙量出图\含沙量读取结果.python_dump", 'wb')
+    pickle.dump(sediment_tranfer_result, f)
+    f.close()
 
-        for _, cc in c.data.items():
-            for _, ccc in cc.items():
-                ccc.set_angle(115)
-                ccc.preprocess()
-                ccc.display(r"C:\Users\刘鹏飞\Desktop\1\t" + str(sss) + ".png")
-                sss = sss + 1
-                print('OK\n', '*' * 10)
-
+    # c = Read_Report(r"C:\2020汕尾渔港选址方案水文测验GK-2020-0030水\实测数据\附录B：潮流观测报表.xlsx")
+    # def process(PointTypeFile):
+    #     current = Single_Tide_Point(
+    #         PointTypeFile.file,
+    #         PointTypeFile.type,
+    #         PointTypeFile.point,
+    #         angle=PointTypeFile.angle,
+    #         ang=5,
+    #         zhang_or_luo=True)
+    #     current.preprocess()
+    #     current.display()
+    #     print(PointTypeFile.point + PointTypeFile.type + current.out_times())
+    # def process_f(i, x, y, f):
+    #     c = Single_Tide_Point(i, '小潮', 'MX1', 180)
+    #     c.preprocess()
+    #     c.location(x=x, y=y)
+    #     c.draw_dxf(parameter=2, drawing=f)
+    # def gen_fig(csv):
+    #     print(csv[-8:-4])
+    #     sss = 0
+    #     c = Read_Report(csv)
+    #
+    #     for _, cc in c.data.items():
+    #         for _, ccc in cc.items():
+    #             ccc.set_angle(115)
+    #             ccc.preprocess()
+    #             ccc.display(r"C:\Users\刘鹏飞\Desktop\1\t" + str(sss) + ".png")
+    #             sss = sss + 1
+    #             print('OK\n', '*' * 10)

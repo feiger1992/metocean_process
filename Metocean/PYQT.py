@@ -9,7 +9,7 @@ from docx import Document
 from docx.shared import Pt
 from docx.oxml.ns import qn
 from docx.shared import RGBColor
-import sys
+import sys, pickle
 import time
 import os
 import pandas
@@ -17,7 +17,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 # 从__main__执行时使用以下导入
 from Metocean.tide import Process_Tide
-from Metocean.current import Single_Tide_Point, Current_pre_process, Read_Report
+from Metocean.current import Single_Tide_Point, Current_pre_process, Read_Report, small_diff_dir
 from Metocean.Wind_and_Wave import Wind_Wave
 # 从本文件执行时使用以下导入
 from dxfwrite import DXFEngine as dxf
@@ -1274,15 +1274,20 @@ class Current_Tab(QWidget):
         print('ok~! ' * 10)
         return 0
 
-    def import_from_report_click(self):
 
+    def import_from_report_click(self):
         self.current_report_file, _ = QFileDialog.getOpenFileName(
-            self, "选取潮流报表文件", "", "Excel文件(*.xlsx)")
+            self, "选取潮流报表文件", "", "Excel文件(*.xlsx);;Python序列化文档(*python_dump)", options=QFileDialog.Options())
         if not self.current_report_file:
             return 0
-        c_excel = Read_Report(self.current_report_file)
+        if "python_dump" in self.current_report_file:
+            f = open(self.current_report_file, 'rb')
+            c_excel = pickle.load(f)
+            f.close()
+            sig.msg_to_show.emit('读取Python文件中，请稍候')
+        else:
+            c_excel = Read_Report(self.current_report_file)
         # self.Points = list(c2.points)
-
         self.Point_count.setValue(len(c_excel.points))
         if len(c_excel.tide_type) == 3:
             self.all_Tide_type.setCurrentIndex(0)
@@ -1300,6 +1305,27 @@ class Current_Tab(QWidget):
                 ang = self.set_Angles_of_excel_data(P_name)
             Excel_angles.update({P_name: ang})
             c_excel.setPoint_ang(P_name, ang=ang)
+        if "python_dump" in self.current_report_file:
+            sig.msg_to_show.emit('对含沙量数据进行投影处理中，请稍候')  # 处理过程中，将流速转化为主流向方向对应的输沙量，流向转为主涨潮流向（落潮为负值）
+            options = QFileDialog.Options()
+            savefileName, _ = QFileDialog.getSaveFileName(
+                self, "保存输沙量计算结果文件", "", "Excel文件 (*.xlsx)", options=options)
+            Excel_Writer = pd.ExcelWriter(savefileName, datetime_format='YYYY-MM-DD HH:MM:SS')
+
+            for P_name in c_excel.points:
+                for tidetype in c_excel.tide_type:
+                    ONEdf = c_excel.data[P_name][tidetype].data
+                    for v_column in ONEdf.columns:
+                        if ('v' in v_column) and (ONEdf.loc[:, v_column].sum() != 0):
+                            ratio = ONEdf.loc[:, v_column.replace('v', 'd')].apply(
+                                lambda f: np.cos(small_diff_dir(f, Excel_angles[P_name]) / 180 * np.pi))
+                            ONEdf.loc[:, v_column] = ONEdf.loc[:, v_column] * ratio  # 流速投影
+                            ONEdf.loc[:, v_column.replace('v', 'd')] = ratio.apply(
+                                lambda x: Excel_angles[P_name] if x > 0 else dir_in_360(
+                                    Excel_angles[P_name] - 180))  # 流向转化/在后续统计中不参与计算
+                            ONEdf.to_excel(Excel_Writer, sheet_name=tidetype + P_name)
+                    c_excel.data[P_name][tidetype].data = ONEdf
+            Excel_Writer.save()
 
         sig.msg_to_show.emit('正在处理潮流数据，请稍候')
         # 读取各自ang结束
