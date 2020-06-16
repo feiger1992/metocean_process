@@ -903,12 +903,12 @@ class Current_Tab(QWidget):
 
         self.mag_declination = QDoubleSpinBox()
         self.mag_declination.setRange(-180, 180)
-        self.mag_declination.setValue(1.91)  # 吉布提
+        self.mag_declination.setValue(-6.03)  # 舟山
         # self.mag_declination.setValue(-5.80)
         # self.mag_declination.setValue(-5.81)#东海舟山
 
         self.mag_declination.setSingleStep(0.01)
-        self.mag_declination.setToolTip('磁偏角向东为正向西为负，默认值1.91为吉布提对应磁偏角')
+        self.mag_declination.setToolTip('磁偏角向东为正向西为负，默认值-6.03°为2020年舟山地区对应磁偏角')
 
         self.if_save_VD = QCheckBox('保存为格式')
         self.if_save_VD.setChecked(True)
@@ -1311,7 +1311,7 @@ class Current_Tab(QWidget):
             savefileName, _ = QFileDialog.getSaveFileName(
                 self, "保存输沙量计算结果文件", "", "Excel文件 (*.xlsx)", options=options)
             Excel_Writer = pd.ExcelWriter(savefileName, datetime_format='YYYY-MM-DD HH:MM:SS')
-
+            concat_dict = {}
             for P_name in c_excel.points:
                 for tidetype in c_excel.tide_type:
                     ONEdf = c_excel.data[P_name][tidetype].data
@@ -1319,12 +1319,14 @@ class Current_Tab(QWidget):
                         if ('v' in v_column) and (ONEdf.loc[:, v_column].sum() != 0):
                             ratio = ONEdf.loc[:, v_column.replace('v', 'd')].apply(
                                 lambda f: np.cos(small_diff_dir(f, Excel_angles[P_name]) / 180 * np.pi))
-                            ONEdf.loc[:, v_column] = ONEdf.loc[:, v_column] * ratio  # 流速投影
+                            # ONEdf.loc[:, v_column] = ONEdf.loc[:, v_column] * ratio  # 流速投影
                             ONEdf.loc[:, v_column.replace('v', 'd')] = ratio.apply(
                                 lambda x: Excel_angles[P_name] if x > 0 else dir_in_360(
                                     Excel_angles[P_name] - 180))  # 流向转化/在后续统计中不参与计算
+                            concat_dict.update({(tidetype + P_name): ONEdf})
                             ONEdf.to_excel(Excel_Writer, sheet_name=tidetype + P_name)
                     c_excel.data[P_name][tidetype].data = ONEdf
+                    pd.concat(concat_dict).to_excel(Excel_Writer, sheet_name="全部汇总")
             Excel_Writer.save()
 
         sig.msg_to_show.emit('正在处理潮流数据，请稍候')
@@ -1470,12 +1472,13 @@ class Current_Tab(QWidget):
             return 0
 
         if "csv" in self.position_file:
-            self.positions = pandas.read_csv(
-                self.position_file, usecols=[
-                    'name', 'x', 'y'])
+            self.positions = pandas.read_csv(self.position_file)
         else:
-            self.positions = pandas.read_excel(
-                self.position_file, columns=['name', 'x', 'y'])
+            self.positions = pandas.read_excel(self.position_file)
+        try:
+            self.positions.rename(columns={'Name': 'name', 'X': 'x', 'Y': 'y'}, inplace=True)
+        except:
+            pass
 
     def draw_current(self):
         option = QFileDialog.Options()
@@ -1497,6 +1500,7 @@ class Current_Tab(QWidget):
             self, "选取潮位数据文件", "", "Excel文件(*.xlsx)", options=self.options)
 
         ###################################################
+
         pos = self.positions.iloc[0, :]
         c_of_one_point = [
             point_c for _,
@@ -1683,14 +1687,14 @@ class Current_Tab(QWidget):
                     # data = data[data['t'].apply(lambda t: t.minute) == 0]
                     for iii in range(len(data)):
                         # 下方为逐时分图层绘制流矢图（只画选中的一层）
-                        # plot_line2(every_c.x, every_c.y, data.loc[iii, 'v'], data.loc[iii, 'd'],
-                        #            tuceng=str(data.loc[iii, 't']).replace(":", ""),
-                        #            parameter=self.cad_parameter.value(), drawing=drawing)
-
-                        # 下方为合并同一潮次至同一图层，分图层绘制流矢图（共画六层三潮，不需选择哪一层）需要多加1641行一层循环
                         plot_line2(every_c.x, every_c.y, data.loc[iii, 'v'], data.loc[iii, 'd'],
-                                   tuceng=every_c.tide_type + name_lay,
+                                   tuceng=name_lay + ' ' + str(data.loc[iii, 't']).replace(":", ""),
                                    parameter=self.cad_parameter.value(), drawing=drawing)
+
+                        # # 下方为合并同一潮次至同一图层，分图层绘制流矢图（共画六层三潮，不需选择哪一层）需要多加1641行一层循环
+                        # plot_line2(every_c.x, every_c.y, data.loc[iii, 'v'], data.loc[iii, 'd'],
+                        #            tuceng=every_c.tide_type + name_lay,
+                        #            parameter=self.cad_parameter.value(), drawing=drawing)
 
                         # 下方为合并同一潮次至一图层，（只画一层）
                         # plot_line2(every_c.x, every_c.y, data.loc[iii, 'v'], data.loc[iii, 'd'],

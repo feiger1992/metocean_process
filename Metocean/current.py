@@ -385,7 +385,7 @@ class Current_pre_process(object):
             right_index=True)
         x = pd.merge(
             pd.DataFrame(
-                self.t),
+                self.df.t),
             x,
             how='outer',
             left_index=True,
@@ -1370,16 +1370,16 @@ class Read_Report():
                         'Bottom',
                         'Ave']
                 if len(df.T) == 4:  # 正常时为表中底，水浅时为268
-                    # df.columns = [
-                    #     'Surface',
-                    #     '0.6H',
-                    #     'Bottom',
-                    #     'Ave']
                     df.columns = [
-                        '0.2H',
+                        'Surface',
                         '0.6H',
-                        '0.8H',
+                        'Bottom',
                         'Ave']
+                    # df.columns = [
+                    #     '0.2H',
+                    #     '0.6H',
+                    #     '0.8H',
+                    #     'Ave']
                 df['time'] = df.index
                 return df.reindex(['time',
                                    'Surface',
@@ -1756,14 +1756,15 @@ def cal_sediment_tranfer(sed_file, current_file, DictOfColumn):
         for Tide, df in P.items():
             df_current = c.data[Pname][Tide].data.set_index('time')
             df_sediment = df.data.set_index('time')
-            columns = ['v_2', 'v_6', 'v_8']
-            for column in columns:
+            for c_current, c_sediment in DictOfColumn.items():
                 for index in df_sediment.index:
                     # print(Pname + Tide + column +" " + str(index) + "这就搞定~")
-                    df_current.loc[index, column] = df_current.loc[index, column] * df_sediment.loc[
-                        index, DictOfColumn[column]]  # 将流速换算为输沙量
+                    df_current.loc[index, c_current] = df_sediment.loc[index, c_sediment]  # 流速换为含沙量
+                    # * df_current.loc[index, c_current] 将流速换算为输沙量
+            df_current.loc[:, 'v'] = df_current.loc[:, list(DictOfColumn.keys())].T.mean()  # 含沙量垂线平均为算术平均值
             c.data[Pname][Tide].data = df_current.loc[df_sediment.index]
-            c.data[Pname][Tide].data = c.data[Pname][Tide].data.fillna({'v_6': 0})
+            c.data[Pname][Tide].data = c.data[Pname][Tide].data.fillna(
+                {'v_6': 0, 'v_2': 0, 'v_8': 0, 'v_10': 0, 'v_0': 0, 'v_4': 0})
 
             c.data[Pname][Tide].data.loc[:, 'time'] = c.data[Pname][Tide].data.index
             c.data[Pname][Tide].data.loc[:, 'Unnamed:1'] = c.data[Pname][Tide].data.index
@@ -1775,11 +1776,11 @@ def cal_sediment_tranfer(sed_file, current_file, DictOfColumn):
 
 
 if __name__ == "__main__":
-    s = r"C:\GK-2020-0030水\实测数据\附录C：含沙量报表-程序读取.xls"
-    c = r"C:\GK-2020-0030水\实测数据\附录B：潮流观测报表-程序读取.xlsx"
-    D = {'v_2': '0.2H', 'v_6': '0.6H', 'v_8': '0.8H'}
+    s = r"C:\2020浙江交通集团舟山建筑工业化分公司预制基地码头工程\8. 报告撰写\附录D：含沙量报表.xls"
+    c = r"C:\2020浙江交通集团舟山建筑工业化分公司预制基地码头工程\6. 数据处理\附录B：定点潮流观测报表-整点部分表中底格式.xlsx"
+    D = {'v_0': 'Surface', 'v_2': '0.2H', 'v_6': '0.6H', 'v_8': '0.8H', 'v_10': 'Bottom'}
     sediment_tranfer_result = cal_sediment_tranfer(s, c, D)
-    f = open(r"C:\GK-2020-0030水\实测数据\报告撰写\含沙量出图\含沙量读取结果.python_dump", 'wb')
+    f = open(r"C:\2020浙江交通集团舟山建筑工业化分公司预制基地码头工程\8. 报告撰写\含沙量读取结果.python_dump", 'wb')
     pickle.dump(sediment_tranfer_result, f)
     f.close()
 
