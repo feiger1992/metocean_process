@@ -12,7 +12,7 @@ import utide
 from matplotlib.dates import date2num
 from windrose import WindroseAxes
 import matplotlib.cm as cm
-import pickle
+import pickle, os
 
 plt.rcParams['font.sans-serif'] = ['SimHei']
 plt.rcParams['axes.unicode_minus'] = False
@@ -123,6 +123,7 @@ def aoe(fun, v_es, v_ns):
         v = fun(i, j)
         vs.append(v)
     return vs
+
 
 
 def is_time_of1(d):
@@ -1229,6 +1230,12 @@ class Single_Tide_Point(One_Current_Point):
         plt.close()
         print(self.point + self.tide_type + 'OK')
 
+    def cal_crosscurrent(self, dock_dir):
+        current_time = self.ceng_processed[0].data['t']
+        Cross = self.ceng_processed[0].cal_crosscurrent_of_df(dock_dir)
+        return pd.Series(data=Cross, index=current_time)
+
+
 class Read_Report():
     def __init__(self, filename, sediment=False):
         def search_row(row, key):
@@ -1538,8 +1545,10 @@ class time_v_d(object):
                 'g'],
             columns=result['diagn']['name'])
 
+    def cal_crosscurrent_of_df(self, dock_dir):  # 码头角度
+        cal_corss_current = lambda v, d: abs(v * np.sin((d - dock_dir) / 180 * np.pi))
+        return aoe(cal_corss_current, self.data['v'], self.data['d'])
         # 需要加入最大可能流速和余流的计算
-
 
 class v_and_d_of_one_dir(object):
     def __init__(self, v_and_d):
@@ -1717,7 +1726,7 @@ def Spring_or_Neap(day):
 def plot_sediment(file, outdir=None):
     if outdir:
         os.chdir(outdir)
-    c = Read_Report(r"C:\2020汕尾渔港选址方案水文测验GK-2020-0030水\实测数据\附录C：含沙量报表-程序读取.xls", sediment=True)
+    c = Read_Report(file, sediment=True)
     for P_name, P in c.data.items():
         for Tidetype, single_survey in P.items():
             countourf_sand_consistency(Tidetype + P_name + "含沙量分布图", single_survey.data)
@@ -1726,7 +1735,7 @@ def plot_sediment(file, outdir=None):
 def countourf_sand_consistency(title, df):
     df = df.dropna(axis=1).set_index('time').iloc[:, 1:-1]
     if len(df.T) == 3:
-        y = [0.2, 0.4, 0.8]  # 汕尾特殊情况，0.2、0.6、0.8三层，其他地方应该为0，0.6，1
+        y = [1, 0.6, 0]  # 汕尾特殊情况，0.2、0.6、0.8三层，其他地方应该为0，0.6，1
     if len(df.T) == 6:
         y = [0, 0.2, 0.4, 0.6, 0.8, 1]
     x = range(len(df))
@@ -1734,7 +1743,7 @@ def countourf_sand_consistency(title, df):
     CS = ax.contourf(x, y, df.T.values, cmap=plt.cm.Greys, vmin=0)
     plt.xticks(range(len(df)), df.index.strftime('%H:%M'), rotation=90)
     Y_index = df.columns.to_list()
-    Y_index.reverse()
+    #Y_index.reverse()
     plt.yticks(y, Y_index)  # 倒序的columns
     cbar = fig.colorbar(CS, pad=0.002)
     cbar.set_label('含沙量' + '$(kg/m^3)$')
@@ -1776,40 +1785,13 @@ def cal_sediment_tranfer(sed_file, current_file, DictOfColumn):
 
 
 if __name__ == "__main__":
-    s = r"C:\2020浙江交通集团舟山建筑工业化分公司预制基地码头工程\8. 报告撰写\附录D：含沙量报表.xls"
-    c = r"C:\2020浙江交通集团舟山建筑工业化分公司预制基地码头工程\6. 数据处理\附录B：定点潮流观测报表-整点部分表中底格式.xlsx"
-    D = {'v_0': 'Surface', 'v_2': '0.2H', 'v_6': '0.6H', 'v_8': '0.8H', 'v_10': 'Bottom'}
-    sediment_tranfer_result = cal_sediment_tranfer(s, c, D)
-    f = open(r"C:\2020浙江交通集团舟山建筑工业化分公司预制基地码头工程\8. 报告撰写\含沙量读取结果.python_dump", 'wb')
-    pickle.dump(sediment_tranfer_result, f)
-    f.close()
+    # s = r"C:\2020浙江交通集团舟山建筑工业化分公司预制基地码头工程\8. 报告撰写\附录D：含沙量报表.xls"
+    # c = r"C:\2020浙江交通集团舟山建筑工业化分公司预制基地码头工程\6. 数据处理\附录B：定点潮流观测报表-整点部分表中底格式.xlsx"
+    # D = {'v_0': 'Surface', 'v_2': '0.2H', 'v_6': '0.6H', 'v_8': '0.8H', 'v_10': 'Bottom'}
+    # sediment_tranfer_result = cal_sediment_tranfer(s, c, D)
+    # f = open(r"C:\2020浙江交通集团舟山建筑工业化分公司预制基地码头工程\8. 报告撰写\含沙量读取结果.python_dump", 'wb')
+    # pickle.dump(sediment_tranfer_result, f)
+    # f.close()
 
-    # c = Read_Report(r"C:\2020汕尾渔港选址方案水文测验GK-2020-0030水\实测数据\附录B：潮流观测报表.xlsx")
-    # def process(PointTypeFile):
-    #     current = Single_Tide_Point(
-    #         PointTypeFile.file,
-    #         PointTypeFile.type,
-    #         PointTypeFile.point,
-    #         angle=PointTypeFile.angle,
-    #         ang=5,
-    #         zhang_or_luo=True)
-    #     current.preprocess()
-    #     current.display()
-    #     print(PointTypeFile.point + PointTypeFile.type + current.out_times())
-    # def process_f(i, x, y, f):
-    #     c = Single_Tide_Point(i, '小潮', 'MX1', 180)
-    #     c.preprocess()
-    #     c.location(x=x, y=y)
-    #     c.draw_dxf(parameter=2, drawing=f)
-    # def gen_fig(csv):
-    #     print(csv[-8:-4])
-    #     sss = 0
-    #     c = Read_Report(csv)
-    #
-    #     for _, cc in c.data.items():
-    #         for _, ccc in cc.items():
-    #             ccc.set_angle(115)
-    #             ccc.preprocess()
-    #             ccc.display(r"C:\Users\刘鹏飞\Desktop\1\t" + str(sss) + ".png")
-    #             sss = sss + 1
-    #             print('OK\n', '*' * 10)
+    plot_sediment(r"C:\2020浙江交通集团舟山建筑工业化分公司预制基地码头工程\8. 报告撰写\附录D：含沙量报表.xls",
+                  r"C:\2020浙江交通集团舟山建筑工业化分公司预制基地码头工程\8. 报告撰写\含沙量出图")

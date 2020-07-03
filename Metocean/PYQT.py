@@ -967,27 +967,27 @@ class Current_Tab(QWidget):
 
         self.show_all_out_Button = QPushButton(
             "查看所有测流结果", clicked=self.show_all_out)
-        self.save_all_out_Button = QPushButton('所有流速流向分布图', clicked=self.gen_ALL_distribution_fig)
+        self.save_all_out_Button = QPushButton('频级分布图', clicked=self.gen_ALL_distribution_fig)
         self.save_max_out_Button = QPushButton(
-            "汇总流速最大值", clicked=self.save_max_out)
+            "汇总最大值", clicked=self.save_max_out)
         self.save_mean_out_Button = QPushButton(
-            "汇总流速平均值", clicked=self.save_mean_out)
+            "汇总平均值", clicked=self.save_mean_out)
         self.draw_current_cad_Button = QPushButton(
             "绘制流矢图(cad)", clicked=self.draw_current_cad)
 
         self.draw_ALL_current_arrow = QPushButton(
-            "绘制各点分层流失图", clicked=self.gen_ALL_fig)
+            "各点分层流失图", clicked=self.gen_ALL_fig)
 
         self.gen_all_duration_Button = QPushButton(
-            "查看涨落潮历时", clicked=self.gen_all_duration_click)
+            "涨落潮历时", clicked=self.gen_all_duration_click)
         self.draw_current_Button = QPushButton(
-            "绘制流速矢量图", clicked=self.draw_current)
+            "逐时矢量图", clicked=self.draw_current)
+
+        self.cal_cross_Button = QPushButton("计算横流", clicked=self.cal_cross_current)
 
         self.draw_cengshu = QComboBox()
         self.draw_cengshu.addItems(
             ["垂线平均", "表层", "0.2H", "0.4H", "0.6H", "0.8H", "底层"])
-        self.cad_parameter = QDoubleSpinBox()
-        self.cad_parameter.setValue(10)
 
         l_group_layout = QFormLayout()
         l_group_layout.addRow("测点数量", self.Point_count)
@@ -1005,8 +1005,8 @@ class Current_Tab(QWidget):
         l_group_layout.addRow(
             self.show_all_out_Button,
             self.save_all_out_Button)
+        l_group_layout.addRow(self.cal_cross_Button)
         l_group_layout.addRow(self.draw_current_cad_Button, self.draw_cengshu)
-        l_group_layout.addRow("选择绘图比例", self.cad_parameter)
         l_group_layout.addRow(self.del_data, self.draw_ALL_current_arrow)
 
         self.current_l_Group.setLayout(l_group_layout)
@@ -1481,7 +1481,17 @@ class Current_Tab(QWidget):
             pass
 
     def draw_current(self):
-        option = QFileDialog.Options()
+        self.setCadParamater()
+        self.current_time = {}
+        for tide_type in self.Tide_types:
+            if tide_type not in self.current_time.keys():
+                for current in c.values():
+                    if (current.tide_type == tide_type) and (tide_type not in self.current_time.keys()):
+                        data = current.ceng_processed[0].data
+                        data = data[data['t'].apply(lambda t: t.minute) == 0]
+                        self.current_time.update({tide_type: data['t']})
+
+        option = QFileDialog.Options()  # 1493-1506
         directory = QFileDialog.getExistingDirectory(
             self, "选取生成图片存放文件夹", "C:/", options=option)  # 起始路径
         os.chdir(directory)
@@ -1498,90 +1508,107 @@ class Current_Tab(QWidget):
 
         tide_data_file, _ = QFileDialog.getOpenFileName(
             self, "选取潮位数据文件", "", "Excel文件(*.xlsx)", options=self.options)
-
         ###################################################
 
-        pos = self.positions.iloc[0, :]
-        c_of_one_point = [
-            point_c for _,
-                        point_c in c.items() if point_c.point == pos.loc['name']]
-        all_t = []
-        for every_c in c_of_one_point:
-            data = every_c.ceng_processed[0].data
-            data = data[data['t'].apply(lambda t: t.minute) == 0]
-            for i in data['t'].values:
-                all_t.append(i)
-                # data.loc[iii, 'v'], data.loc[iii, 'd']
+        # pos = self.positions.iloc[0, :]
+        # c_of_one_point = [
+        #     point_c for _,
+        #                 point_c in c.items() if point_c.point == pos.loc['name']]
 
-        for single_time in all_t:
-            title = str(single_time)[:13].replace('T', " ") + ":00"
-            fig = plt.figure(figsize=(31.8009478, 20), dpi=400)
-            ax = fig.add_subplot(111)
+        for temp_tide_type, tide_times in self.current_time.items():
+            for single_time in tide_times:
+                xs, ys = [], []
+                title = str(single_time)[:13].replace('T', " ") + ":00"
+                fig = plt.figure(figsize=(30, 20), dpi=400)
+                ax = fig.add_subplot(111)
 
-            for pos in self.positions.itertuples():
-                for each_tide in self.Tide_types:
-                    every_c = c.get(pos.name + each_tide)
-                    data = every_c.ceng_processed[self.draw_cengshu.currentIndex(
-                    )].data
-                    if single_time not in data['t'].values:
+                for c_name, c_data in c.items():
+                    if temp_tide_type != c_data.tide_type:
                         continue
-                    temp_tide_type = each_tide
+                    data = c_data.ceng_processed[self.draw_cengshu.currentIndex()].data
 
                     instance = data[data['t'] == single_time]
-                    V = instance.v.values[0]
-                    D = instance.d.values[0]
-                    u = east(V, D)
-                    v = north(V, D)
+                    x = self.positions[self.positions.name == c_data.point]['x'].values[0]
+                    y = self.positions[self.positions.name == c_data.point]['y'].values[0]
+                    xs.append(x)
+                    ys.append(y)
+                    ax.text(x, y, c_data.point, color='green', fontsize=20)
+                    try:
+                        V = instance.v.values[0]
+                        D = instance.d.values[0]
+                        u = east(V, D) * self.cad_parameter
+                        v = north(V, D) * self.cad_parameter
+                        # pos = self.positions[self.positions.name == c_data.point]
+                        # ax.text(pos.x + u, pos.y + v, "v = " + str(V) + "\nd = " + str(D), color='red', size="x-small")
+                        ax.arrow(x, y, u, v,
+                                 width=3,
+                                 fc="black",
+                                 ec="ivory")
+                    except:
+                        pass
 
-                    ax.text(pos.x, pos.y, pos.name, color='green', fontsize=20)
-                    # ax.text(pos.x + u, pos.y + v, "v = " + str(V) + "\nd = " + str(D), color='red', size="x-small")
-                    ax.arrow(
-                        pos.x,
-                        pos.y,
-                        u,
-                        v,
-                        width=3,
-                        fc="black",
-                        ec="ivory")
+                ax.set_xlim(min(xs) - 100, max(xs) + 100)
+                ax.set_ylim(min(ys) - 100, max(ys) + 100)
+                ax.set_title(temp_tide_type + " " + title,
+                             color='black',
+                             weight="bold",
+                             fontsize=40)
+                plt.xticks([])
+                plt.yticks([])
+                plt.tight_layout()
 
-            ax.set_xlim(511950, 513300)
-            ax.set_ylim(3386066, 3386910)
-            ax.text(
-                512500,
-                3386850,
-                temp_tide_type +
-                " " +
-                title,
-                color='black',
-                weight="bold",
-                fontsize=40)
-            plt.xticks([])
-            plt.yticks([])
-            plt.tight_layout()
+                # temp_tide_data = pd.read_excel(
+                #     tide_data_file, sheet_name=temp_tide_type)
+                # temp_tide_data['time'] = pd.to_datetime(temp_tide_data['time'])
+                # i = temp_tide_data[temp_tide_data['time'] == single_time].index[0]
 
-            temp_tide_data = pd.read_excel(
-                tide_data_file, sheet_name=temp_tide_type)
-            temp_tide_data['time'] = pd.to_datetime(temp_tide_data['time'])
-            i = temp_tide_data[temp_tide_data['time'] == single_time].index[0]
+                tide_times = self.current_time[temp_tide_type]
+                tide_data = pd.read_excel(tide_data_file)
+                temp_tide_data = tide_data.set_index('time').loc[tide_times]
 
-            plt.axes([.65, .02, .3, .1], facecolor='grey')
-            plt.plot(temp_tide_data['tide'], color='blue')
-            # plt.title('潮位')
-            plt.axvline(x=i, color='r', linestyle='-')
-            plt.xticks([])
-            plt.yticks([])
+                plt.axes([.65, .02, .3, .1], facecolor='grey')
+                plt.plot(temp_tide_data['tide'], color='blue')
+                # plt.title('潮位')
+                plt.axvline(x=single_time, color='r', linestyle='-')
+                plt.xticks([])
+                plt.yticks([])
 
-            plt.savefig(
-                temp_tide_type +
-                title.replace(
-                    ":00",
-                    ' ') +
-                ".png",
-                dpi=400)
-            plt.close()
+                plt.savefig(
+                    temp_tide_type +
+                    title.replace(
+                        ":00",
+                        ' ') +
+                    ".png",
+                    dpi=400)
+                plt.close()
+                sig.msg_to_show.emit(title + "流速矢量图绘制结束。")
+
+    def setCadParamater(self):
+        cad_paramater, ok = QInputDialog.getDouble(self, "设置绘图比例", "流矢比例:", 10, 0, 10000, 2)
+        if ok:
+            self.cad_parameter = cad_paramater
+
+    def cal_cross_current(self):
+        self.gen_all_current_out()
+        dock_Dir, ok = QInputDialog.getDouble(self, "设置码头角度", "码头前沿线方位角：", 0, 0, 360, 2)
+        if ok:
+            self.dock_Dir = dock_Dir
+        cross_current_out = {"大潮": {}, "中潮": {}, "小潮": {}}
+        sig.msg_to_show.emit('正在计算码头角度为' + str(dock_Dir) + "时的横流，请稍等")
+        for _, j in c.items():
+            cross_current_out[j.tide_type].update({j.point: j.cal_crosscurrent(self.dock_Dir)})
+        options = QFileDialog.Options()
+        cross_fileName, _ = QFileDialog.getSaveFileName(self, "保存横流计算结果文件", "", "Excel文件(*.xlsx)", options=options)
+        Excel_Writer = pd.ExcelWriter(cross_fileName, datetime_format='YYYY-MM-DD HH:MM:SS')
+        for Tide_type, Cross_result in cross_current_out.items():
+            pd.DataFrame(Cross_result).to_excel(Excel_Writer, sheet_name=Tide_type + " 码头角度" + str(self.dock_Dir),
+                                                float_format="%.0f")
+        Excel_Writer.save()
+        sig.msg_to_show.emit('横流计算结束，结果保存至' + cross_fileName)
 
     def draw_current_cad(self):
         self.gen_all_current_out()
+        self.setCadParamater()
 
         def end_point(x, y, velocity, direction, parameter):
             v_east = velocity * np.sin(direction / 180 * np.pi)
@@ -1652,12 +1679,12 @@ class Current_Tab(QWidget):
                 for iii in range(len(data)):
                     #plot_line2(every_c.x, every_c.y, data.loc[iii, 'v'], data.loc[iii, 'd'],
                               #tuceng=str(data.loc[iii, 't']).replace(":",""),
-                              #parameter=self.cad_parameter.value(), drawing=drawing)
+                              #parameter=self.cad_parameter, drawing=drawing)
 
-                    plot_line(every_c.x,every_c.y, data['v'], data['d'],tuceng= every_c.tide_type+self.draw_cengshu.currentText(), parameter=self.cad_parameter.value(),drawing=drawing)
+                    plot_line(every_c.x,every_c.y, data['v'], data['d'],tuceng= every_c.tide_type+self.draw_cengshu.currentText(), parameter=self.cad_parameter,drawing=drawing)
 
             if every_c.point not in named_points:
-                text = dxf.text(every_c.point,insert=(every_c.x,every_c.y),height=self.cad_parameter.value()*10,)
+                text = dxf.text(every_c.point,insert=(every_c.x,every_c.y),height=self.cad_parameter*10,)
                 text['layer'] = ['TEXT']
                 text['color'] = 5
                 drawing.add(text)
@@ -1689,20 +1716,20 @@ class Current_Tab(QWidget):
                         # 下方为逐时分图层绘制流矢图（只画选中的一层）
                         plot_line2(every_c.x, every_c.y, data.loc[iii, 'v'], data.loc[iii, 'd'],
                                    tuceng=name_lay + ' ' + str(data.loc[iii, 't']).replace(":", ""),
-                                   parameter=self.cad_parameter.value(), drawing=drawing)
+                                   parameter=self.cad_parameter, drawing=drawing)
 
                         # # 下方为合并同一潮次至同一图层，分图层绘制流矢图（共画六层三潮，不需选择哪一层）需要多加1641行一层循环
                         # plot_line2(every_c.x, every_c.y, data.loc[iii, 'v'], data.loc[iii, 'd'],
                         #            tuceng=every_c.tide_type + name_lay,
-                        #            parameter=self.cad_parameter.value(), drawing=drawing)
+                        #            parameter=self.cad_parameter, drawing=drawing)
 
                         # 下方为合并同一潮次至一图层，（只画一层）
                         # plot_line2(every_c.x, every_c.y, data.loc[iii, 'v'], data.loc[iii, 'd'],
                         #             tuceng=every_c.tide_type+self.draw_cengshu.currentText(),
-                        #             parameter=self.cad_parameter.value(), drawing=drawing)
+                        #             parameter=self.cad_parameter, drawing=drawing)
 
                         # 下方为最开始绘制流矢图对应的函数
-                        # plot_line(every_c.x,every_c.y, data['v'], data['d'],tuceng= every_c.tide_type+self.draw_cengshu.currentText(), parameter=self.cad_parameter.value(),drawing=drawing)
+                        # plot_line(every_c.x,every_c.y, data['v'], data['d'],tuceng= every_c.tide_type+self.draw_cengshu.currentText(), parameter=self.cad_parameter,drawing=drawing)
 
             if every_c.point not in named_points:
                 text = dxf.text(
@@ -1710,7 +1737,7 @@ class Current_Tab(QWidget):
                     insert=(
                         every_c.x,
                         every_c.y),
-                    height=self.cad_parameter.value() *
+                    height=self.cad_parameter *
                            10,
                 )
                 text['layer'] = ['TEXT']
